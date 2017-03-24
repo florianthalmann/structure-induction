@@ -1,0 +1,33 @@
+{
+  "name": "siafun",
+  "version": "0.0.1",
+  "description": "A collection of structure induction algorithms",
+  "main": "lib/index.js",
+  "dependencies": {
+    "arrayutils": "0.0.1",
+    "clusterfck": "^0.6.0",
+    "lodash": "^4.17.4",
+    "mathjs": "^3.10.0"
+  },
+  "devDependencies": {},
+  "files": [
+    "lib/"
+  ],
+  "scripts": {
+    "test": "jasmine"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/florianthalmann/structure-induction.git"
+  },
+  "keywords": [
+    "structure",
+    "induction"
+  ],
+  "author": "florianthalmann",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/florianthalmann/structure-induction/issues"
+  },
+  "homepage": "https://github.com/florianthalmann/structure-induction#readme"
+}
