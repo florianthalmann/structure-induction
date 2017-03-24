@@ -13,45 +13,6 @@ describe("a structure induction algorithm", function() {
 	//points (3,4), (4,5) added to test iterative cosiatec
 	var vectors = [[1,1],[1,3],[2,1],[2,2],[2,3],[3,2],[4,3],[5,4]];
 
-	/*beforeEach(function(done) {
-
-		/*GlobalVars.DYMO_STORE = new DymoStore(function(){
-			//example from figure 12 in meredith-lemström-wiggins 2003
-			//dimensions reversed due to order reversing in easystore
-			//points (3,4), (4,5) added to test iterative cosiatec
-
-
-			GlobalVars.DYMO_STORE.addDymo("dymo1");
-			GlobalVars.DYMO_STORE.addDymo("a", "dymo1");
-			GlobalVars.DYMO_STORE.addDymo("b", "dymo1");
-			GlobalVars.DYMO_STORE.addDymo("c", "dymo1");
-			GlobalVars.DYMO_STORE.addDymo("d", "dymo1");
-			GlobalVars.DYMO_STORE.addDymo("e", "dymo1");
-			GlobalVars.DYMO_STORE.addDymo("f", "dymo1");
-			GlobalVars.DYMO_STORE.addDymo("g", "dymo1");
-			GlobalVars.DYMO_STORE.addDymo("h", "dymo1");
-			GlobalVars.DYMO_STORE.setFeature("a", ONSET_FEATURE, 1);
-			GlobalVars.DYMO_STORE.setFeature("a", PITCH_FEATURE, 1);
-			GlobalVars.DYMO_STORE.setFeature("b", ONSET_FEATURE, 3);
-			GlobalVars.DYMO_STORE.setFeature("b", PITCH_FEATURE, 1);
-			GlobalVars.DYMO_STORE.setFeature("c", ONSET_FEATURE, 1);
-			GlobalVars.DYMO_STORE.setFeature("c", PITCH_FEATURE, 2);
-			GlobalVars.DYMO_STORE.setFeature("d", ONSET_FEATURE, 2);
-			GlobalVars.DYMO_STORE.setFeature("d", PITCH_FEATURE, 2);
-			GlobalVars.DYMO_STORE.setFeature("e", ONSET_FEATURE, 3);
-			GlobalVars.DYMO_STORE.setFeature("e", PITCH_FEATURE, 2);
-			GlobalVars.DYMO_STORE.setFeature("f", ONSET_FEATURE, 2);
-			GlobalVars.DYMO_STORE.setFeature("f", PITCH_FEATURE, 3);
-			GlobalVars.DYMO_STORE.setFeature("g", ONSET_FEATURE, 3);
-			GlobalVars.DYMO_STORE.setFeature("g", PITCH_FEATURE, 4);
-			GlobalVars.DYMO_STORE.setFeature("h", ONSET_FEATURE, 4);
-			GlobalVars.DYMO_STORE.setFeature("h", PITCH_FEATURE, 5);
-			var surface = DymoStructureInducer.getAllParts(["dymo1"], GlobalVars.DYMO_STORE);
-		  vectors = DymoStructureInducer.toVectors(surface, GlobalVars.DYMO_STORE);
-			done();
-		});
-	});*/
-
 	it ("can build a hierarchy from patterns", function() {
 		var inducer = new StructureInducer(vectors);
 		var structure = inducer.getStructure(0);

@@ -11,7 +11,8 @@
   },
   "devDependencies": {},
   "files": [
-    "lib/"
+    "lib/",
+    "spec/"
   ],
   "scripts": {
     "test": "jasmine"
