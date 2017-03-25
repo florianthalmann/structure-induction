@@ -1,21 +1,24 @@
 {
   "name": "siafun",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "description": "A collection of structure induction algorithms",
   "main": "lib/index.js",
-  "dependencies": {
-    "arrayutils": "0.0.1",
-    "clusterfck": "^0.6.0",
-    "lodash": "^4.17.4",
-    "mathjs": "^3.10.0"
-  },
-  "devDependencies": {},
+  "typings": "lib/index",
   "files": [
     "lib/",
     "spec/"
   ],
   "scripts": {
     "test": "jasmine"
+  },
+  "dependencies": {
+    "arrayutils": "*",
+    "clusterfck": "^0.6.0",
+    "lodash": "^4.17.4",
+    "mathjs": "^3.10.0"
+  },
+  "devDependencies": {
+    "typescript": "^2.2.1"
   },
   "repository": {
     "type": "git",
