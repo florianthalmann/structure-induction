@@ -7,7 +7,8 @@ import { SmithWaterman, SmithWatermanResult, TRACES } from './smith-waterman'
 
 export interface IterativeSmithWatermanResult {
   segments: number[][][],
-  matrices: SmithWatermanResult[]
+  matrices: SmithWatermanResult[],
+  segmentMatrix: number[][],
 }
 
 export class StructureInducer {
@@ -109,7 +110,7 @@ export class StructureInducer {
    * relevant options are: iterative, similarityThreshold, maxThreshold, endThreshold, minSegmentLength, patternIndices
    */
   getSmithWatermanOccurrences(options): IterativeSmithWatermanResult {
-    let result: IterativeSmithWatermanResult = {segments:[], matrices:[]};
+    let result: IterativeSmithWatermanResult = {segments:[], matrices:[], segmentMatrix:[]};
     let matrices = this.getAdjustedSWMatrices(options.similarityThreshold, result);
     var max: number, i: number, j: number;
     [i, j, max] = this.getIJAndMax(matrices.scoreMatrix);
@@ -125,10 +126,10 @@ export class StructureInducer {
         console.log("current max: " + max, "current dist: " + dist, "\ncurrent points: " + JSON.stringify(currentPoints), "\ncurrent segments: " + JSON.stringify(currentSegments));
         //TODO ONLY ADD IF DIFFERENCE FROM EXISTING ONES SMALL ENOUGH!!!!!
         result.segments.push(currentSegments);
+        //add reflections at diagonal
+        currentPoints = _.concat(currentPoints, currentPoints.map(p => _.reverse(_.clone(p))));
+        allSelectedPoints = _.concat(allSelectedPoints, currentPoints);
         if (options.iterative) {
-          //add reflections at diagonal
-          currentPoints = _.concat(currentPoints, currentPoints.map(p => _.reverse(_.clone(p))));
-          allSelectedPoints = _.concat(allSelectedPoints, currentPoints);
           matrices = this.getAdjustedSWMatrices(options.similarityThreshold, result, allSelectedPoints);
         }
       }
@@ -138,10 +139,27 @@ export class StructureInducer {
     if (options.patternIndices) {
       result.segments = result.segments.filter((s,i) => options.patternIndices.indexOf(i) >= 0);
     }
+    result.segmentMatrix = this.createPointMatrix(allSelectedPoints);
     return result;
   }
 
-  private getAlignment(matrices, i, j, endThreshold?: number, onlyDiagonals?: number): number[][] {
+  createPointMatrix(points: number[][]): number[][] {
+    let maxIndex = math.max(points);
+    let row = _.fill(new Array(maxIndex+1), 0);
+    let matrix = row.map(m => _.fill(new Array(maxIndex+1), 0));
+    points.forEach(p => matrix[p[0]][p[1]] = 1);
+    return matrix;
+  }
+
+  createSegmentMatrix(segments: number[][][]): number[][] {
+    let maxIndex = math.max(segments);
+    let row = _.fill(new Array(maxIndex+1), 0);
+    let matrix = row.map(m => _.fill(new Array(maxIndex+1), 0));
+    segments.forEach(s => s[0].forEach((s0,i) => matrix[s0][s[1][i]] = 1));
+    return matrix;
+  }
+
+  private getAlignment(matrices, i, j, endThreshold?: number, onlyDiagonals?: boolean): number[][] {
     //find ij trace in matrix
     let currentValue = matrices.scoreMatrix[i][j];
     let currentTrace = matrices.traceMatrix[i][j];

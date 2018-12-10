@@ -64,9 +64,15 @@ export class SmithWaterman {
     return {scoreMatrix:scoreMatrix, traceMatrix:traceMatrix};
   }
 
+  //negative similarityTreshold interpreted as min intersection ratio
   private isSimilar(v1: number[], v2: number[]): boolean {
-    return (this.similarityTreshold != null && Similarity.getCosineSimilarity(v1, v2) > this.similarityTreshold)
+    return (this.similarityTreshold > 0 && Similarity.getCosineSimilarity(v1, v2) >= this.similarityTreshold)
+      || (this.similarityTreshold < 0 && this.intersect(v1, v2) >= -1*this.similarityTreshold)
       || _.isEqual(v1, v2);
+  }
+
+  private intersect(v1: number[], v2: number[]): number {
+    return _.intersection(v1, v2).length / v1.length;
   }
 
 }
