@@ -38,19 +38,19 @@ export class Siatec {
   }
 
   run() {
-    console.log("PATTERNS")
+    //console.log("PATTERNS")
     this.vectorTable = this.getVectorTable(this.points);
     this.patterns = this.calculateSiaPatterns(this.points);
-    console.log("OPTIMIZING")
+    //console.log("OPTIMIZING")
     //TODO GET OCCURRENCES HERE FOR MINIMIZATION HEURISTICS
     if (this.optimizationMethod === OPTIMIZATION.MINIMIZE) {
       this.patterns = this.patterns.map(p => this.minimizePattern(p, this.points, this.optimizationDimension));
     } else if (this.optimizationMethod === OPTIMIZATION.DIVIDE) {
       this.patterns = _.flatten(this.patterns.map(p => this.dividePattern(p, this.points, this.optimizationDimension)));
     }
-    console.log("VECTORS")
+    //console.log("VECTORS")
     this.occurrenceVectors = this.calculateSiatecOccurrences(this.points, this.patterns);
-    console.log("HEURISTICS")
+    //console.log("HEURISTICS")
     this.heuristics = this.patterns.map((p,i) => this.selectionHeuristic(p, this.occurrenceVectors[i], null, this.points));
   }
 
@@ -69,7 +69,7 @@ export class Siatec {
 
   getOccurrences(patternIndices?: number[]): number[][][] {
     if (!this.occurrences) {
-      console.log("OCCURRENCES")
+      //console.log("OCCURRENCES")
       this.occurrences = this.occurrenceVectors.map((occ, i) => occ.map(tsl => this.patterns[i].map(pat => pat.map((p,k) => p + tsl[k]))));
     }
     return this.occurrences;

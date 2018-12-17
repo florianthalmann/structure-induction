@@ -1,45 +1,59 @@
 import * as _ from 'lodash';
 
-interface Segmentation {
+export interface Segmentation {
   p: number, //position
   l: number, //length
   ts: number[] //translations
 }
 
-export class SegmentationInferer {
-
-  private segmentations: Segmentation[];
-
-  constructor(private inputSegments: number[][][]) {}
+export class Hierarchizer {
 
   /** assumes that all occurrences of segments are of the same length! */
-  inferHierarchy(segmentPairs: number[][][]) {
-    segmentPairs.forEach(s => this.processSegmentPair(s));
-    console.log(this.segmentations);
+  inferHierarchyFromPatterns(patterns: number[][][]) {
+    let segments = this.patternsToSegments(patterns);
+    //segments.forEach(s => this.processSegmentPair(s));
+    segments = this.processOverlaps(segments);
     //TODO NOW BUILD HIERARCHY
   }
+  
+  private patternsToSegments(patterns: number[][][]): Segmentation[] {
+    return patterns.map(p => this.toSegmentation(p));
+  }
 
-  private processSegmentPair(segmentPair: number[][]) {
+  /*private patternToSegments(segmentPair: number[][]) {
     let newSegments = [this.toSegmentation(segmentPair)];
     newSegments = this.processOverlaps(newSegments);
     this.segmentations.push();
-  }
+  }*/
 
   private updateSegmentations() {
     //this.processOverlaps();
     //this.mergePatterns();
   }
 
-  private toSegmentation(segmentPair: number[][]): Segmentation {
+  private toSegmentation(pattern: number[][]): Segmentation {
+    const length = _.last(pattern[0])-pattern[0][0];
     return {
-      p: segmentPair[0][0],
-      l: _.last(segmentPair[0])-segmentPair[0][0],
-      ts: segmentPair.map((s,i) => s[i][0]-s[0][0]).filter((s,i) => i > 0)
+      p: pattern[0][0],
+      l: length,
+      ts: pattern.slice(1).map(p => p[0]-pattern[0][0])
     };
   }
 
   private processOverlaps(segmentations: Segmentation[]): Segmentation[] {
-    return _.flatten(segmentations.forEach(s => this.divide(s, _.min(s.ts))));
+    return _.flatten(segmentations.map(s => this.split(s)));
+  }
+  
+  private split(s: Segmentation): Segmentation[] {
+    const segs = [];
+    let ts = _.min(s.ts);
+    while (s.l > ts) {
+      const div = this.divide(s, ts);
+      segs.push(div[0]);
+      s = div[1];
+    }
+    segs.push(s);
+    return segs;
   }
 
   /** divides the segmentation s at position loc */

@@ -26,11 +26,13 @@ export class StructureInducer {
   }
 
   //returns patterns of indices in the original point sequence
-  getOccurrences(patternIndices) {
-    let cosiatec = new Cosiatec(this.quantizedPoints, this.options);
-    let occurrences = cosiatec.getOccurrences(patternIndices);
+  getCosiatecPatterns(patternIndices?: number[]) {
+    const cosiatec = new Cosiatec(this.quantizedPoints, this.options);
+    const occurrences = cosiatec.getOccurrences(patternIndices);
     //get the indices of the points involved
-    return this.pointsToIndices(occurrences);
+    const patterns = this.pointsToIndices(occurrences)
+    patterns.forEach(p => p.map(o => o.sort((a,b) => a-b)));
+    return patterns;
   }
 
   getSmithWaterman() {

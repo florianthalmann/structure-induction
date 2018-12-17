@@ -9,15 +9,16 @@
     "spec/"
   ],
   "scripts": {
-    "test": "jasmine"
+    "test": "tsc && jasmine"
   },
   "dependencies": {
     "arrayutils": "*",
     "clusterfck": "^0.6.0",
-    "lodash": "^4.17.4",
+    "lodash": "^4.17.11",
     "mathjs": "^3.10.0"
   },
   "devDependencies": {
+    "jasmine": "^3.3.1",
     "typescript": "^2.2.1"
   },
   "repository": {
