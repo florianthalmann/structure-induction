@@ -1,8 +1,8 @@
 import * as _ from 'lodash'
 import * as math from 'mathjs'
 import { indexOfMax } from 'arrayutils';
-import { Quantizer } from './quantizer'
-import { Cosiatec } from './cosiatec'
+import { Quantizer, ArrayMap } from './quantizer'
+import { Cosiatec, CosiatecOptions } from './cosiatec'
 import { SmithWaterman, SmithWatermanResult, TRACES } from './smith-waterman'
 
 export interface IterativeSmithWatermanResult {
@@ -11,13 +11,17 @@ export interface IterativeSmithWatermanResult {
   segmentMatrix: number[][],
 }
 
+export interface StructureOptions extends CosiatecOptions {
+  quantizerFunctions: ArrayMap[]
+}
+
 export class StructureInducer {
 
   private quantizer: Quantizer;
   private quantizedPoints: number[][];
   private pointStrings: string[];
 
-  constructor(points: number[][], private options) {
+  constructor(points: number[][], private options: StructureOptions) {
     var quantizerFuncs = options ? options.quantizerFunctions : [];
     this.quantizer = new Quantizer(quantizerFuncs);
     this.quantizedPoints = this.quantizer.getQuantizedPoints(points);
@@ -26,11 +30,11 @@ export class StructureInducer {
   }
 
   //returns patterns of indices in the original point sequence
-  getCosiatecPatterns(patternIndices?: number[]) {
+  getCosiatecPatterns(patternIndices?: number[]): number[][][] {
     const cosiatec = new Cosiatec(this.quantizedPoints, this.options);
     const occurrences = cosiatec.getOccurrences(patternIndices);
     //get the indices of the points involved
-    const patterns = this.pointsToIndices(occurrences)
+    const patterns = this.pointsToIndices(occurrences);
     patterns.forEach(p => p.map(o => o.sort((a,b) => a-b)));
     return patterns;
   }

@@ -1,4 +1,4 @@
-export { StructureInducer, IterativeSmithWatermanResult } from './structure';
+export { StructureInducer, StructureOptions, IterativeSmithWatermanResult } from './structure';
 export { Hierarchizer, Segmentation } from './hierarchizer';
 export { Similarity } from './similarity';
 export { Quantizer, QUANT_FUNCS } from './quantizer';

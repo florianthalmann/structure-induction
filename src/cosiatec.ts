@@ -10,20 +10,18 @@ export interface CosiatecOptions extends SiatecOptions {
 export class Cosiatec {
 
   private points;
-  private options: CosiatecOptions;
-  private patterns;
-  private occurrences;
-  private vectors;
+  private patterns: number[][][] = [];
+  private occurrences: number[][][][] = [];
+  private vectors: number[][][] = [];
+  private heuristics: number[] = [];
 
-  constructor(points: number[][], options?: CosiatecOptions) {
+  constructor(points: number[][], private options?: CosiatecOptions) {
     this.points = this.getSortedCloneWithoutDupes(points);
-    this.options = options;
-    this.patterns = [];
-    this.occurrences = [];
-    this.vectors = [];
     this.calculateCosiatecPatterns(this.options ? this.options.overlapping : false);
     this.vectors = this.vectors.map(i => i.map(v => v.map(e => _.round(e,8)))); //eliminate float errors
-    console.log("patterns (length, occurrences, vector): " + JSON.stringify(this.patterns.map((p,i) => [p.length, this.occurrences[i].length, this.vectors[i][1]])));
+    console.log("patterns (length, occurrences, vector, heuristic):");
+    this.patterns.forEach((p,i) =>
+        console.log("  "+p.length + ", " + this.occurrences[i].length+ ", " + this.vectors[i][1]+ ", " + _.round(this.heuristics[i], 2)));
   }
 
   getPatterns(patternIndices?: number[]): number[][][] {
@@ -42,6 +40,10 @@ export class Cosiatec {
 
   getOccurrenceVectors(): number[][][] {
     return this.vectors;
+  }
+  
+  getHeuristics(): number[] {
+    return this.heuristics;
   }
 
   /**
@@ -66,6 +68,7 @@ export class Cosiatec {
         this.patterns.push(patterns[iOfMaxHeur]);
         this.occurrences.push(occurrences);
         this.vectors.push(vectors[iOfMaxHeur]);
+        this.heuristics.push(heuristics[iOfMaxHeur]);
       }
       if (overlapping) {
         this.removeElementAt(iOfMaxHeur, patterns, vectors, heuristics);

@@ -23,10 +23,10 @@ export class Siatec {
   private optimizationHeuristic: HEURISTICS.CosiatecHeuristic;
   private optimizationDimension: number;
   private vectorTable;
-  private patterns;
-  private occurrenceVectors;
-  private occurrences;
-  private heuristics;
+  private patterns: number[][][];
+  private occurrenceVectors: number[][][];
+  private occurrences: number[][][][];
+  private heuristics: number[];
 
   constructor(points: number[][], options: SiatecOptions = {optimizationMethod:OPTIMIZATION.NONE}) {
     this.points = points;
@@ -44,7 +44,7 @@ export class Siatec {
     //console.log("OPTIMIZING")
     //TODO GET OCCURRENCES HERE FOR MINIMIZATION HEURISTICS
     if (this.optimizationMethod === OPTIMIZATION.MINIMIZE) {
-      this.patterns = this.patterns.map(p => this.minimizePattern(p, this.points, this.optimizationDimension));
+      this.patterns = this.patterns.map(p => this.minimizePatternForReal(p, this.points, this.optimizationDimension));
     } else if (this.optimizationMethod === OPTIMIZATION.DIVIDE) {
       this.patterns = _.flatten(this.patterns.map(p => this.dividePattern(p, this.points, this.optimizationDimension)));
     }
@@ -67,7 +67,7 @@ export class Siatec {
       .map(tsl => this.patterns[patternIndex].map(pat => pat.map((p,k) => p + tsl[k])));
   }
 
-  getOccurrences(patternIndices?: number[]): number[][][] {
+  getOccurrences(patternIndices?: number[]): number[][][][] {
     if (!this.occurrences) {
       //console.log("OCCURRENCES")
       this.occurrences = this.occurrenceVectors.map((occ, i) => occ.map(tsl => this.patterns[i].map(pat => pat.map((p,k) => p + tsl[k]))));
@@ -80,7 +80,7 @@ export class Siatec {
   }
 
   //returns a list with the sia patterns detected for the given points
-  private calculateSiaPatterns(points: number[][]): number[][] {
+  private calculateSiaPatterns(points: number[][]): number[][][] {
     //get all the vectors below the diagonal of the translation matrix
     var halfTable = this.vectorTable.map((col,i) => col.slice(i+1));
     //transform into a list by merging the table's columns
@@ -92,7 +92,7 @@ export class Siatec {
   }
 
   //returns a list with the
-  private calculateSiatecOccurrences(points: number[][], patterns: number[][]) {
+  private calculateSiatecOccurrences(points: number[][], patterns: number[][][]) {
     var vectorMap = new Map();
     points.forEach((v,i) => vectorMap.set(JSON.stringify(v),i));
     //get rid of points of origin in vector table
@@ -128,6 +128,19 @@ export class Siatec {
       if (betterPattern) {
         return this.minimizePattern(betterPattern, allPoints, optimDim);
       }
+    }
+    return pattern;
+  }
+  
+  minimizePatternForReal(pattern: number[][], allPoints: number[][], optimDim: number): number[][] {
+    const currentHeuristicValue = this.optimizationHeuristic(pattern, null, null, allPoints); //TODO SOMEHOW GET OCCURRENCES!!
+    pattern.sort((a,b)=>b[optimDim]-a[optimDim]);
+    if (pattern.length > 1) {
+      //all possible connected subpatterns
+      const subPatterns = _.flatten(pattern.map((_,i) => pattern.map((_,j) =>
+        pattern.slice(i,pattern.length-j))));
+      const heuristics = this.getAllHeuristics(subPatterns, allPoints);
+      return subPatterns[indexOfMax(heuristics)];
     }
     return pattern;
   }
