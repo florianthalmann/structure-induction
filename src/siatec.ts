@@ -30,10 +30,10 @@ export class Siatec {
 
   constructor(points: number[][], options: SiatecOptions = {optimizationMethod:OPTIMIZATION.NONE}) {
     this.points = points;
-    this.selectionHeuristic = options.selectionHeuristic ? options.selectionHeuristic : HEURISTICS.COMPACTNESS2;
-    this.optimizationMethod = options.optimizationMethod ? options.optimizationMethod : OPTIMIZATION.NONE;
-    this.optimizationHeuristic = options.optimizationHeuristic ? options.optimizationHeuristic : HEURISTICS.COMPACTNESS2;
-    this.optimizationDimension = options.optimizationDimension ? options.optimizationDimension : 0;
+    this.selectionHeuristic = options.selectionHeuristic || HEURISTICS.COMPACTNESS;
+    this.optimizationMethod = options.optimizationMethod || OPTIMIZATION.NONE;
+    this.optimizationHeuristic = options.optimizationHeuristic || HEURISTICS.COMPACTNESS;
+    this.optimizationDimension = options.optimizationDimension || 0;
     this.run();
   }
 

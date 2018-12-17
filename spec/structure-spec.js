@@ -36,8 +36,8 @@ describe("a structure induction algorithm", function() {
 		console.log(JSON.stringify(minimized));
 		expect(patterns[5].length).toBe(4);
 		expect(minimized.length).toBe(3);
-		expect(HEURISTICS.COMPACTNESS2(patterns[5], null, null, vectors)).toBe(0.25);
-		expect(HEURISTICS.COMPACTNESS2(minimized, null, null, vectors)).toBe(0.5);
+		expect(HEURISTICS.COMPACTNESS(patterns[5], null, null, vectors)).toBe(0.5714285714285714);
+		expect(HEURISTICS.COMPACTNESS(minimized, null, null, vectors)).toBe(0.75);
 
 		var divided = siatec.dividePattern(patterns[5], vectors);
 		console.log(JSON.stringify(divided));
@@ -55,7 +55,7 @@ describe("a structure induction algorithm", function() {
 		//overlapping patterns
 		cosiatec = new Cosiatec(vectors, {overlapping: true});
 		patterns = cosiatec.getPatterns();
-		expect(JSON.stringify(patterns)).toEqual("[[[1,1],[2,2]],[[2,1],[2,2]],[[1,1],[1,3],[2,2]]]");
+		expect(JSON.stringify(patterns)).toEqual("[[[1,1],[2,2]],[[1,1],[1,3],[2,2]]]");
 	});
 
 	it("has various different heuristics", function() {
@@ -67,10 +67,7 @@ describe("a structure induction algorithm", function() {
 		expect(coverage).toEqual([ 0.375, 0.75, 0.75, 1, 0.75, 0.75, 1, 1, 1, 0.75, 0.75, 1, 1, 0.75, 1, 1, 1 ]);
 
 		var compactness = patterns.map(p => HEURISTICS.COMPACTNESS(p, null, null, vectors));
-		expect(compactness).toEqual([ 0.25, 0.2, 0.2, 0.125, 0.2, 0.14285714285714285, 0.125, 0.125, 0.125, 0.3333333333333333, 0.3333333333333333, 0.125, 0.125, 0.3333333333333333, 0.125, 0.125, 0.125 ]);
-
-		var compactness2 = patterns.map(p => HEURISTICS.COMPACTNESS2(p, null, null, vectors));
-		expect(compactness2).toEqual([ 0.3333333333333333, 0.25, 0.25, 0.125, 0.3333333333333333, 0.25, 0.125, 0.125, 0.125, 0.5, 0.5, 0.125, 0.125, 0.5, 0.125, 0.125, 0.125 ]);
+		expect(compactness).toEqual([ 0.5, 0.4, 0.4, 0.125, 0.6, 0.5714285714285714, 0.125, 0.125, 0.125, 0.6666666666666666, 0.6666666666666666, 0.125, 0.125, 0.6666666666666666, 0.125, 0.125, 0.125 ]);
 	});
 
 	it("can quantize the data", function() {
