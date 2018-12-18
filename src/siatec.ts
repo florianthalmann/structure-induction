@@ -158,9 +158,10 @@ export class Siatec {
       /*if (leftPatterns.length > 11) {
         console.log(leftPatterns.length, currentHeuristicValue, productHeuristics, indexOfBest, leftHeuristics[indexOfBest], rightHeuristics[indexOfBest]);
       }*/
-      if (Math.max(leftHeuristics[indexOfBest], rightHeuristics[indexOfBest]) > currentHeuristicValue) {
-        let leftPattern = pattern.slice(indexOfBest);
-        let rightPattern = pattern.slice(0, indexOfBest);
+      if ((indexOfBest > 0 && indexOfBest < pattern.length-1)
+        && (Math.max(leftHeuristics[indexOfBest], rightHeuristics[indexOfBest]) > currentHeuristicValue)) {
+        let leftPattern = pattern.slice(0, indexOfBest)
+        let rightPattern = pattern.slice(indexOfBest);
         return _.flatten([this.dividePattern(leftPattern, allPoints, optimDim), this.dividePattern(rightPattern, allPoints, optimDim)]);
       }
     }
