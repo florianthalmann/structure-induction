@@ -68,6 +68,10 @@ describe("a structure induction algorithm", function() {
 
 		var compactness = patterns.map(p => HEURISTICS.COMPACTNESS(p, null, null, vectors));
 		expect(compactness).toEqual([ 0.5, 0.4, 0.4, 0.125, 0.6, 0.5714285714285714, 0.125, 0.125, 0.125, 0.6666666666666666, 0.6666666666666666, 0.125, 0.125, 0.6666666666666666, 0.125, 0.125, 0.125 ]);
+		
+		//test bounding box
+		//const points = HEURISTICS.getPointsInBoundingBox()
+		
 	});
 
 	it("can quantize the data", function() {

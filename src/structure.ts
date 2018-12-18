@@ -12,7 +12,9 @@ export interface IterativeSmithWatermanResult {
 }
 
 export interface StructureOptions extends CosiatecOptions {
-  quantizerFunctions: ArrayMap[]
+  quantizerFunctions: ArrayMap[],
+  minPatternLength?: number,
+  minHeuristicValue?: number
 }
 
 export class StructureInducer {
@@ -32,7 +34,14 @@ export class StructureInducer {
   //returns patterns of indices in the original point sequence
   getCosiatecPatterns(patternIndices?: number[]): number[][][] {
     const cosiatec = new Cosiatec(this.quantizedPoints, this.options);
-    const occurrences = cosiatec.getOccurrences(patternIndices);
+    let occurrences = cosiatec.getOccurrences(patternIndices);
+    if (this.options.minHeuristicValue) {
+      const heuristics = cosiatec.getHeuristics();
+      occurrences = occurrences.filter((_,i) => heuristics[i] >= this.options.minHeuristicValue);
+    }
+    if (this.options.minPatternLength) {
+      occurrences = occurrences.filter(o => o[0].length >= this.options.minPatternLength);
+    }
     //get the indices of the points involved
     const patterns = this.pointsToIndices(occurrences);
     patterns.forEach(p => p.map(o => o.sort((a,b) => a-b)));
