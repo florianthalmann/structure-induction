@@ -25,12 +25,12 @@ export module HEURISTICS {
 
 	/**proportion of points in pattern bounding box involved in pattern*/
 	export const SIZE_AND_COMPACTNESS: CosiatecHeuristic = function(pattern: number[][], vectors: number[][], occurrences: number[][][], allPoints: number[][]) {
-		return pattern.length * pattern.length / getPointsInBoundingBox(pattern, allPoints).length;
+		return Math.pow(pattern.length, 1.8) / getPointsInBoundingBox(pattern, allPoints).length;
 	}
 	
 	export const SIZE_AND_1D_COMPACTNESS = function(dimIndex: number): CosiatecHeuristic {
 		return (pattern: number[][], vectors: number[][], occurrences: number[][][], allPoints: number[][]) =>
-			pattern.length * pattern.length / getPointsInBoundingBox(pattern, allPoints, dimIndex).length;
+			Math.pow(pattern.length, 1.8) / getPointsInBoundingBox(pattern, allPoints, dimIndex).length;
 	}
 
 	export function getPointsInBoundingBox(pattern: number[][], allPoints: number[][], dimIndex?: number) {
