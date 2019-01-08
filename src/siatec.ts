@@ -5,7 +5,8 @@ import { HEURISTICS } from './heuristics'
 export enum OPTIMIZATION {
   NONE,
   MINIMIZE,
-  DIVIDE
+  DIVIDE,
+  PARTITION
 }
 
 export interface SiatecOptions {
@@ -42,13 +43,19 @@ export class Siatec {
     this.vectorTable = this.getVectorTable(this.points);
     this.patterns = this.calculateSiaPatterns(this.points);
     //console.log("OPTIMIZING")
-    //TODO GET OCCURRENCES HERE FOR MINIMIZATION HEURISTICS
-    if (this.optimizationMethod === OPTIMIZATION.MINIMIZE) {
+    //preliminary occurrence vectors for partitioning
+    this.occurrenceVectors = this.calculateSiatecOccurrences(this.points, this.patterns);
+    if (this.optimizationMethod === OPTIMIZATION.PARTITION) {
+      this.patterns = _.flatten(this.patterns.slice(0, 550).map((p,i) => this.partitionPattern(p, this.points, this.optimizationDimension, this.occurrenceVectors[i])));
+    } else if (this.optimizationMethod === OPTIMIZATION.MINIMIZE) {
       this.patterns = this.patterns.map(p => this.minimizePatternForReal(p, this.points, this.optimizationDimension));
     } else if (this.optimizationMethod === OPTIMIZATION.DIVIDE) {
-      this.patterns = _.flatten(this.patterns.map(p => this.dividePattern(p, this.points, this.optimizationDimension)));
+      const divided = this.patterns.map(p => this.dividePattern(p, this.points, this.optimizationDimension));
+      console.log(divided.length, divided.map(p => p.length).filter(p => p > 1))
+      this.patterns = _.flatten(divided);
     }
     //console.log("VECTORS")
+    //recalculate occurrence vectors
     this.occurrenceVectors = this.calculateSiatecOccurrences(this.points, this.patterns);
     //console.log("HEURISTICS")
     this.heuristics = this.patterns.map((p,i) => this.selectionHeuristic(p, this.occurrenceVectors[i], null, this.points));
@@ -167,6 +174,34 @@ export class Siatec {
     }
     return [pattern];
   }
+  
+  partitionPattern(pattern: number[][], allPoints: number[][], optimDim: number, vectors: number[][]): number[][][] {
+    let currentHeuristicValue = this.optimizationHeuristic(pattern, vectors, null, allPoints);//TODO SOMEHOW GET OCCURRENCES!!
+    pattern.sort((a,b)=>a[optimDim]-b[optimDim]);
+    if (vectors.length == 2 && pattern.length > 1) {
+      const vector = vectors[1];
+      const maxLength = Math.abs(vector[optimDim]);
+      const min = pattern[0][optimDim];
+      const max = _.last(pattern)[optimDim];
+      const patternLength = max-min;
+      if (patternLength > maxLength) {
+        const partitions = _.range(min, min+maxLength).map(offset =>
+          pattern.reduce<number[][][]>((result,p) => {
+            const currentPartition = result.length+1;
+            if (p[optimDim] < (currentPartition*maxLength)-offset) {
+              _.last(result).push(p);
+            } else {
+              result.push([p]);
+            }
+            //console.log(offset, currentPartition, p, offset+(currentPartition*maxLength), result)
+            return result;
+          }, []));
+        const heuristics = partitions.map(p => this.getAllHeuristics(p, allPoints));
+        return partitions[indexOfMax(heuristics.map(hs => _.mean(hs)))];
+      }
+    }
+    return [pattern];
+  }
 
   private getLeftPatterns(pattern) {
     return pattern.map((p,i) => pattern.slice(i));
@@ -176,7 +211,7 @@ export class Siatec {
     return pattern.map((p,i) => pattern.slice(0,i+1)).reverse();
   }
 
-  private getAllHeuristics(patterns, allPoints) {
+  private getAllHeuristics(patterns: number[][][], allPoints: number[][]) {
     return patterns.map(s => this.optimizationHeuristic(s, null, null, allPoints)); //TODO SOMEHOW GET OCCURRENCES!!
   }
 
