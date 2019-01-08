@@ -178,26 +178,35 @@ export class Siatec {
   partitionPattern(pattern: number[][], allPoints: number[][], optimDim: number, vectors: number[][]): number[][][] {
     let currentHeuristicValue = this.optimizationHeuristic(pattern, vectors, null, allPoints);//TODO SOMEHOW GET OCCURRENCES!!
     pattern.sort((a,b)=>a[optimDim]-b[optimDim]);
-    if (vectors.length == 2 && pattern.length > 1) {
-      const vector = vectors[1];
-      const maxLength = Math.abs(vector[optimDim]);
+    if (vectors.length > 1 && pattern.length > 1) {
+      const vals = vectors.map(v => v[optimDim]);
+      const dists = _.flatten(vals.map((v,i) =>
+        vals.filter((w,j) => j>i).map(w => Math.abs(v-w))));
+      const maxLength = _.min(dists);
       const min = pattern[0][optimDim];
       const max = _.last(pattern)[optimDim];
       const patternLength = max-min;
-      if (patternLength > maxLength) {
-        const partitions = _.range(min, min+maxLength).map(offset =>
+      //console.log(patternLength, maxLength);
+      if (patternLength >= maxLength) {
+        const partitions = _.range(0, maxLength).map(offset =>
           pattern.reduce<number[][][]>((result,p) => {
-            const currentPartition = result.length+1;
-            if (p[optimDim] < (currentPartition*maxLength)-offset) {
-              _.last(result).push(p);
-            } else {
+            const currentPartition = result.length;
+            //console.log(offset, currentPartition, p, min+(currentPartition*maxLength)-offset);
+            if (_.last(result).length && p[optimDim] >= min+(currentPartition*maxLength)-offset) {
               result.push([p]);
+            } else {
+              _.last(result).push(p);
             }
-            //console.log(offset, currentPartition, p, offset+(currentPartition*maxLength), result)
+            //console.log(result);
             return result;
-          }, []));
+          }, [[]]));
         const heuristics = partitions.map(p => this.getAllHeuristics(p, allPoints));
-        return partitions[indexOfMax(heuristics.map(hs => _.mean(hs)))];
+        //console.log(partitions.map(p => p.map(s => s.length)), heuristics);
+        const maxes = heuristics.map(_.max);
+        const i = indexOfMax(maxes);
+        const numMaxes = maxes.reduce((n,m) => n + (m == maxes[i] ? 1 : 0), 0);
+        return numMaxes == 1 ? partitions[i]
+          : partitions[indexOfMax(heuristics.map(_.mean))];
       }
     }
     return [pattern];

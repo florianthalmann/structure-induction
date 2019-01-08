@@ -44,10 +44,9 @@ describe("a structure induction algorithm", function() {
 		expect(divided[0].length).toBe(2);
 		expect(divided[1].length).toBe(2);
 		
-		var vectors = siatec.getOccurrenceVectors();
 		var partitioned = siatec.partitionPattern(patterns[5], points, 0, [[0,0],[2,0]]);
 		expect(JSON.stringify(partitioned)).toBe('[[[1,1],[2,1]],[[3,2],[4,3]]]');
-		partitioned = siatec.partitionPattern(patterns[5], points, 0, [[0,0],[1,0]]);
+		partitioned = siatec.partitionPattern(patterns[5], points, 0, siatec.getOccurrenceVectors()[5]);
 		expect(JSON.stringify(partitioned)).toBe('[[[1,1]],[[2,1]],[[3,2]],[[4,3]]]');
 		partitioned = siatec.partitionPattern(patterns[5], points, 0, [[0,0],[3,0]]);
 		expect(JSON.stringify(partitioned)).toBe('[[[1,1],[2,1]],[[3,2],[4,3]]]');
