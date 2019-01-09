@@ -142,8 +142,8 @@ export class StructureInducer {
         //TODO ONLY ADD IF DIFFERENCE FROM EXISTING ONES SMALL ENOUGH!!!!!
         result.segments.push(currentSegments);
         //add reflections at diagonal
-        currentPoints = _.concat(currentPoints, currentPoints.map(p => _.reverse(_.clone(p))));
-        allSelectedPoints = _.concat(allSelectedPoints, currentPoints);
+        currentPoints = currentPoints.concat(currentPoints.map(p => _.reverse(_.clone(p))));
+        allSelectedPoints = allSelectedPoints.concat(currentPoints);
         if (options.iterative) {
           matrices = this.getAdjustedSWMatrices(options.similarityThreshold, result, allSelectedPoints);
         }

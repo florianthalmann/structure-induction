@@ -34,8 +34,8 @@ function getConstant(value: number): ArrayMap {
 }
 
 /** returns a function that rounds all numbers in an array to the given precision */
-function getRound(precision: number): ArrayMap {
-	return toArrayMap(_.curryRight(_.round,2)(precision));
+function getRound(precision: number = 2): ArrayMap {
+	return toArrayMap(_.curryRight<number,number,number>(_.round)(precision));
 }
 
 /** returns a function that maps all numbers in an array onto their index */
@@ -45,7 +45,7 @@ function getOrder(): ArrayMap {
 
 /** returns a function that maps all arrays in an array onto the outDims highest values */
 function getSummarize(outDims: number): ArrayMap {
-	return toMatrixMap(_.curryRight(indicesOfNMax)(outDims));
+	return toMatrixMap(_.curryRight<number[],number,number[]>(indicesOfNMax)(outDims));
 }
 
 /** returns a function that summarizes and sorts the arrays of an array */

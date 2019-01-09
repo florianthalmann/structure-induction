@@ -1,12 +1,19 @@
-import * as _ from 'lodash'
-import { intersectSortedArrays, mergeSortedArrays, indexOfMax } from 'arrayutils'
-import { HEURISTICS } from './heuristics'
+import * as _ from 'lodash';
+import { intersectSortedArrays, mergeSortedArrays, indexOfMax } from 'arrayutils';
+import { HEURISTICS } from './heuristics';
+
+export type Point = number[];
+export type Vector = number[];
+export type Pattern = Point[];
+export type Occurrence = Point[];
+export type Occurrences = Occurrence[];
 
 export enum OPTIMIZATION {
   NONE,
   MINIMIZE,
   DIVIDE,
-  PARTITION
+  PARTITION,
+  ALL
 }
 
 export interface SiatecOptions {
@@ -23,10 +30,10 @@ export class Siatec {
   private optimizationMethod: number;
   private optimizationHeuristic: HEURISTICS.CosiatecHeuristic;
   private optimizationDimension: number;
-  private vectorTable;
-  private patterns: number[][][];
-  private occurrenceVectors: number[][][];
-  private occurrences: number[][][][];
+  private vectorTable: [Vector, Point][][];
+  private patterns: Pattern[];
+  private occurrenceVectors: Vector[][];
+  private occurrences: Occurrences[];
   private heuristics: number[];
 
   constructor(points: number[][], options: SiatecOptions = {optimizationMethod:OPTIMIZATION.NONE}) {
@@ -45,14 +52,14 @@ export class Siatec {
     //console.log("OPTIMIZING")
     //preliminary occurrence vectors for partitioning
     this.occurrenceVectors = this.calculateSiatecOccurrences(this.points, this.patterns);
-    if (this.optimizationMethod === OPTIMIZATION.PARTITION) {
-      this.patterns = _.flatten(this.patterns.slice(0, 550).map((p,i) => this.partitionPattern(p, this.points, this.optimizationDimension, this.occurrenceVectors[i])));
-    } else if (this.optimizationMethod === OPTIMIZATION.MINIMIZE) {
+    if (this.optimizationMethod === OPTIMIZATION.PARTITION || this.optimizationMethod === OPTIMIZATION.ALL) {
+      this.patterns = _.flatten<Pattern>(this.patterns.slice(0, 550).map((p,i) => this.partitionPattern(p, this.points, this.optimizationDimension, this.occurrenceVectors[i])));
+    }
+    if (this.optimizationMethod === OPTIMIZATION.DIVIDE || this.optimizationMethod === OPTIMIZATION.ALL) {
+      const divided = _.flatten<Pattern>(this.patterns.map(p => this.dividePattern(p, this.points, this.optimizationDimension)));
+    }
+    if (this.optimizationMethod === OPTIMIZATION.MINIMIZE || this.optimizationMethod === OPTIMIZATION.ALL) {
       this.patterns = this.patterns.map(p => this.minimizePatternForReal(p, this.points, this.optimizationDimension));
-    } else if (this.optimizationMethod === OPTIMIZATION.DIVIDE) {
-      const divided = this.patterns.map(p => this.dividePattern(p, this.points, this.optimizationDimension));
-      console.log(divided.length, divided.map(p => p.length).filter(p => p > 1))
-      this.patterns = _.flatten(divided);
     }
     //console.log("VECTORS")
     //recalculate occurrence vectors
@@ -61,20 +68,20 @@ export class Siatec {
     this.heuristics = this.patterns.map((p,i) => this.selectionHeuristic(p, this.occurrenceVectors[i], null, this.points));
   }
 
-  getPatterns() {
+  getPatterns(): Pattern[] {
     return this.patterns;
   }
 
-  getOccurrenceVectors() {
+  getOccurrenceVectors(): Vector[][] {
     return this.occurrenceVectors;
   }
 
-  getOccurrencesAt(patternIndex: number) {
+  getOccurrencesAt(patternIndex: number): Occurrences {
     return this.occurrenceVectors[patternIndex]
       .map(tsl => this.patterns[patternIndex].map(pat => pat.map((p,k) => p + tsl[k])));
   }
 
-  getOccurrences(patternIndices?: number[]): number[][][][] {
+  getOccurrences(patternIndices?: number[]): Occurrences[] {
     if (!this.occurrences) {
       //console.log("OCCURRENCES")
       this.occurrences = this.occurrenceVectors.map((occ, i) => occ.map(tsl => this.patterns[i].map(pat => pat.map((p,k) => p + tsl[k]))));
@@ -87,11 +94,11 @@ export class Siatec {
   }
 
   //returns a list with the sia patterns detected for the given points
-  private calculateSiaPatterns(points: number[][]): number[][][] {
+  private calculateSiaPatterns(points: Point[]): Pattern[] {
     //get all the vectors below the diagonal of the translation matrix
     var halfTable = this.vectorTable.map((col,i) => col.slice(i+1));
     //transform into a list by merging the table's columns
-    var vectorList = mergeSortedArrays(halfTable);
+    var vectorList: Vector[] = mergeSortedArrays(halfTable);
     //group by translation vectors
     var patternMap = this.groupByKeys(vectorList);
     //get the map's values
@@ -99,17 +106,16 @@ export class Siatec {
   }
 
   //returns a list with the
-  private calculateSiatecOccurrences(points: number[][], patterns: number[][][]) {
-    var vectorMap = new Map();
+  private calculateSiatecOccurrences(points: Point[], patterns: Pattern[]): Vector[][]  {
+    var vectorMap: Map<string,number> = new Map();
     points.forEach((v,i) => vectorMap.set(JSON.stringify(v),i));
     //get rid of points of origin in vector table
-    var fullTable = this.vectorTable.map(col => col.map(row => row[0]));
+    var fullTable: Vector[][] = this.vectorTable.map(col => col.map(row => row[0]));
     var occurrences = patterns.map(pat => pat.map(point => fullTable[vectorMap.get(JSON.stringify(point))]));
-    occurrences = occurrences.map(occ => this.getIntersection(occ));
-    return occurrences;
+    return occurrences.map(occ => this.getIntersection(occ));
   }
 
-  minimizePattern(pattern: number[][], allPoints: number[][], optimDim: number): number[][] {
+  minimizePattern(pattern: Pattern, allPoints: Point[], optimDim: number): Pattern {
     let currentHeuristicValue = this.optimizationHeuristic(pattern, null, null, allPoints); //TODO SOMEHOW GET OCCURRENCES!!
     pattern.sort((a,b)=>b[optimDim]-a[optimDim]);
     if (pattern.length > 1) {
@@ -139,20 +145,20 @@ export class Siatec {
     return pattern;
   }
   
-  minimizePatternForReal(pattern: number[][], allPoints: number[][], optimDim: number): number[][] {
+  minimizePatternForReal(pattern: Pattern, allPoints: Point[], optimDim: number): Pattern {
     const currentHeuristicValue = this.optimizationHeuristic(pattern, null, null, allPoints); //TODO SOMEHOW GET OCCURRENCES!!
     pattern.sort((a,b)=>b[optimDim]-a[optimDim]);
     if (pattern.length > 1) {
       //all possible connected subpatterns
-      const subPatterns = _.flatten(pattern.map((_,i) => pattern.map((_,j) =>
-        pattern.slice(i,pattern.length-j))));
+      const subPatterns: Pattern[] = _.flatten<Pattern>(pattern.map((_,i) =>
+        pattern.map((_,j) => pattern.slice(i,pattern.length-j))));
       const heuristics = this.getAllHeuristics(subPatterns, allPoints);
       return subPatterns[indexOfMax(heuristics)];
     }
     return pattern;
   }
 
-  dividePattern(pattern: number[][], allPoints: number[][], optimDim: number): number[][][] {
+  dividePattern(pattern: Pattern, allPoints: Point[], optimDim: number): Pattern[] {
     let currentHeuristicValue = this.optimizationHeuristic(pattern, null, null, allPoints);//TODO SOMEHOW GET OCCURRENCES!!
     pattern.sort((a,b)=>b[optimDim]-a[optimDim]);
     if (pattern.length > 1) {
@@ -169,13 +175,14 @@ export class Siatec {
         && (Math.max(leftHeuristics[indexOfBest], rightHeuristics[indexOfBest]) > currentHeuristicValue)) {
         let leftPattern = pattern.slice(0, indexOfBest)
         let rightPattern = pattern.slice(indexOfBest);
-        return _.flatten([this.dividePattern(leftPattern, allPoints, optimDim), this.dividePattern(rightPattern, allPoints, optimDim)]);
+        //console.log(indexOfBest, pattern.length, [this.dividePattern(leftPattern, allPoints, optimDim), this.dividePattern(rightPattern, allPoints, optimDim)])
+        return _.flatten<Pattern>([this.dividePattern(leftPattern, allPoints, optimDim), this.dividePattern(rightPattern, allPoints, optimDim)]);
       }
     }
     return [pattern];
   }
   
-  partitionPattern(pattern: number[][], allPoints: number[][], optimDim: number, vectors: number[][]): number[][][] {
+  partitionPattern(pattern: Pattern, allPoints: Point[], optimDim: number, vectors: number[][]): Pattern[] {
     let currentHeuristicValue = this.optimizationHeuristic(pattern, vectors, null, allPoints);//TODO SOMEHOW GET OCCURRENCES!!
     pattern.sort((a,b)=>a[optimDim]-b[optimDim]);
     if (vectors.length > 1 && pattern.length > 1) {
@@ -212,15 +219,15 @@ export class Siatec {
     return [pattern];
   }
 
-  private getLeftPatterns(pattern) {
+  private getLeftPatterns(pattern: Pattern): Pattern[] {
     return pattern.map((p,i) => pattern.slice(i));
   }
 
-  private getRightPatterns(pattern) {
+  private getRightPatterns(pattern: Pattern): Pattern[] {
     return pattern.map((p,i) => pattern.slice(0,i+1)).reverse();
   }
 
-  private getAllHeuristics(patterns: number[][][], allPoints: number[][]) {
+  private getAllHeuristics(patterns: Pattern[], allPoints: Point[]): number[] {
     return patterns.map(s => this.optimizationHeuristic(s, null, null, allPoints)); //TODO SOMEHOW GET OCCURRENCES!!
   }
 
@@ -234,20 +241,22 @@ export class Siatec {
   }
 
   //takes an array of arrays of vectors and calculates their intersection
-  private getIntersection(vectors) {
+  private getIntersection(vectors: Vector[][]): Vector[] {
     if (vectors.length > 1) {
-      var isect = vectors.slice(1).reduce((isect, tsls) => intersectSortedArrays(isect, tsls), vectors[0]);
+      var isect = vectors.slice(1).reduce((isect, tsls) =>
+        intersectSortedArrays(isect, tsls), vectors[0]);
       //console.log(JSON.stringify(points), JSON.stringify(isect));
       return isect;
     }
     return vectors[0];
   }
 
-  private getVectorTable(points) {
-  	return points.map((v,i) => points.map(w => [_.zipWith(w, v, _.subtract), v]));
+  private getVectorTable(points: Point[]): [Vector, Point][][] {
+    return <[Vector, Point][][]> points.map((p,i) => 
+      points.map(q => [_.zipWith(q, p, _.subtract), p]));
   }
 
-  private groupByKeys(vectors) {
+  private groupByKeys(vectors: Vector[]) {
     return vectors.reduce((grouped, item) => {
       var key = JSON.stringify(item[0]);
       grouped[key] = grouped[key] || [];

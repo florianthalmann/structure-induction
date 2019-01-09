@@ -58,7 +58,7 @@ export class Cosiatec {
     while (currentPoints.length > 0 && patterns.length > 0) {
       var iOfMaxHeur = indexOfMax(heuristics);
       let occurrences = siatec.getOccurrencesAt(iOfMaxHeur);
-      var involvedPoints = new Set(_.flatten(occurrences).map(p => JSON.stringify(p)));
+      var involvedPoints = new Set(_.flatten<number[]>(occurrences).map(p => JSON.stringify(p)));
       var previousLength = currentPoints.length;
       currentPoints = currentPoints.map(p => JSON.stringify(p)).filter(p => !involvedPoints.has(p)).map(p => JSON.parse(p));
       //only add to results if the pattern includes some points that are in no other pattern
