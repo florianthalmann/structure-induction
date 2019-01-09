@@ -39,7 +39,7 @@ describe("a structure induction algorithm", function() {
 		expect(HEURISTICS.COMPACTNESS(minimized, null, null, points)).toBe(1);
 
 		var divided = siatec.dividePattern(patterns[5], points);
-		//console.log(JSON.stringify(divided));
+		console.log(JSON.stringify(divided));
 		expect(divided.length).toBe(2);
 		expect(divided[0].length).toBe(2);
 		expect(divided[1].length).toBe(2);
