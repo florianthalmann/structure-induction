@@ -4,7 +4,8 @@ import { Siatec, SiatecOptions, OPTIMIZATION } from './siatec'
 import { HEURISTICS } from './heuristics'
 
 export interface CosiatecOptions extends SiatecOptions {
-  overlapping?: boolean
+  overlapping?: boolean,
+  loggingOn?: boolean 
 }
 
 export class Cosiatec {
@@ -19,9 +20,11 @@ export class Cosiatec {
     this.points = this.getSortedCloneWithoutDupes(points);
     this.calculateCosiatecPatterns(this.options ? this.options.overlapping : false);
     this.vectors = this.vectors.map(i => i.map(v => v.map(e => _.round(e,8)))); //eliminate float errors
-    console.log("patterns (length, occurrences, vector, heuristic):");
-    this.patterns.forEach((p,i) =>
-        console.log("  "+p.length + ", " + this.occurrences[i].length+ ", " + this.vectors[i][1]+ ", " + _.round(this.heuristics[i], 2)));
+    if (this.options.loggingOn) {
+      console.log("patterns (length, occurrences, vector, heuristic):");
+      this.patterns.forEach((p,i) =>
+          console.log("  "+p.length + ", " + this.occurrences[i].length+ ", " + this.vectors[i][1]+ ", " + _.round(this.heuristics[i], 2)));
+    }
   }
 
   getPatterns(patternIndices?: number[]): number[][][] {
@@ -63,8 +66,11 @@ export class Cosiatec {
       currentPoints = currentPoints.map(p => JSON.stringify(p)).filter(p => !involvedPoints.has(p)).map(p => JSON.parse(p));
       //only add to results if the pattern includes some points that are in no other pattern
       if (!overlapping || previousLength > currentPoints.length) {
-        console.log("remaining:", currentPoints.length, "patterns:", patterns.length,
-          "max pts:", _.max(patterns.map(p=>p.length)));
+        if (this.options.loggingOn) {
+          console.log("remaining:", currentPoints.length,
+            "patterns:", patterns.length,
+            "max pts:", _.max(patterns.map(p=>p.length)));
+        }
         this.patterns.push(patterns[iOfMaxHeur]);
         this.occurrences.push(occurrences);
         this.vectors.push(vectors[iOfMaxHeur]);

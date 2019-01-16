@@ -37,7 +37,7 @@ export class Siatec {
   constructor(points: number[][], options: SiatecOptions = {}) {
     this.points = points;
     this.selectionHeuristic = options.selectionHeuristic || HEURISTICS.COMPACTNESS;
-    this.optimizationMethods = options.optimizationMethods;
+    this.optimizationMethods = options.optimizationMethods || [];
     this.optimizationHeuristic = options.optimizationHeuristic || HEURISTICS.COMPACTNESS;
     this.optimizationDimension = options.optimizationDimension || 0;
     this.run();
@@ -215,9 +215,6 @@ export class Siatec {
   private findFirstBetterSubPattern(subPatterns, allPoints, currentHeuristicValue: number) {
     let potentialHeuristics = this.getAllHeuristics(subPatterns, allPoints);
     var firstBetterIndex = potentialHeuristics.findIndex(c => c > currentHeuristicValue);
-    if (subPatterns.length > 20) {
-      console.log(subPatterns.length, currentHeuristicValue, potentialHeuristics, firstBetterIndex);
-    }
     return [firstBetterIndex, potentialHeuristics[firstBetterIndex]];
   }
 

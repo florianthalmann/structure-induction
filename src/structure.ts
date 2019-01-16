@@ -27,12 +27,22 @@ export class StructureInducer {
     var quantizerFuncs = options ? options.quantizerFunctions : [];
     this.quantizer = new Quantizer(quantizerFuncs);
     this.quantizedPoints = this.quantizer.getQuantizedPoints(points);
-    console.log("quantized points:", JSON.stringify(this.quantizedPoints));
+    if (options.loggingOn) {
+      console.log("quantized points:", JSON.stringify(this.quantizedPoints));
+    }
     this.pointStrings = this.quantizedPoints.map(v => JSON.stringify(v));
   }
 
   //returns patterns of indices in the original point sequence
   getCosiatecPatterns(patternIndices?: number[]): number[][][] {
+    //get the indices of the points involved
+    const patterns = this.pointsToIndices(this.getCosiatecOccurrences(patternIndices));
+    patterns.forEach(p => p.map(o => o.sort((a,b) => a-b)));
+    return patterns;
+  }
+
+  //returns occurrences of patterns in the original point sequence
+  getCosiatecOccurrences(patternIndices?: number[]): number[][][][] {
     const cosiatec = new Cosiatec(this.quantizedPoints, this.options);
     let occurrences = cosiatec.getOccurrences(patternIndices);
     if (this.options.minHeuristicValue) {
@@ -42,10 +52,7 @@ export class StructureInducer {
     if (this.options.minPatternLength) {
       occurrences = occurrences.filter(o => o[0].length >= this.options.minPatternLength);
     }
-    //get the indices of the points involved
-    const patterns = this.pointsToIndices(occurrences);
-    patterns.forEach(p => p.map(o => o.sort((a,b) => a-b)));
-    return patterns;
+    return occurrences;
   }
 
   getSmithWaterman() {
