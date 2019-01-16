@@ -1,6 +1,6 @@
 {
   "name": "siafun",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A collection of structure induction algorithms",
   "main": "lib/index.js",
   "typings": "lib/index",
@@ -9,7 +9,9 @@
     "spec/"
   ],
   "scripts": {
-    "test": "tsc && jasmine"
+    "test": "tsc && jasmine",
+    "build": "tsc",
+    "prepare": "npm run build"
   },
   "dependencies": {
     "arrayutils": "*",
