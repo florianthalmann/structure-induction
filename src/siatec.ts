@@ -15,10 +15,11 @@ export enum OPTIMIZATION {
 }
 
 export interface SiatecOptions {
-  selectionHeuristic?: HEURISTICS.CosiatecHeuristic;
-  optimizationMethods?: number[];
-  optimizationHeuristic?: HEURISTICS.CosiatecHeuristic;
-  optimizationDimension?: number;
+  selectionHeuristic?: HEURISTICS.CosiatecHeuristic,
+  optimizationMethods?: number[],
+  optimizationHeuristic?: HEURISTICS.CosiatecHeuristic,
+  optimizationDimension?: number,
+  minPatternLength?: number
 }
 
 export class Siatec {
@@ -28,6 +29,7 @@ export class Siatec {
   private optimizationMethods: number[];
   private optimizationHeuristic: HEURISTICS.CosiatecHeuristic;
   private optimizationDimension: number;
+  private minPatternLength: number;
   private vectorTable: [Vector, Point][][];
   private patterns: Pattern[];
   private occurrenceVectors: Vector[][];
@@ -40,29 +42,37 @@ export class Siatec {
     this.optimizationMethods = options.optimizationMethods || [];
     this.optimizationHeuristic = options.optimizationHeuristic || HEURISTICS.COMPACTNESS;
     this.optimizationDimension = options.optimizationDimension || 0;
+    this.minPatternLength = options.minPatternLength || 0;
     this.run();
   }
 
   run() {
-    //console.log("PATTERNS")
+    console.log("PATTERNS - points", this.points.length)
     this.vectorTable = this.getVectorTable(this.points);
     this.patterns = this.calculateSiaPatterns(this.points);
-    //console.log("OPTIMIZING")
+    this.patterns = this.patterns.filter(p => p.length >= this.minPatternLength);
     //preliminary occurrence vectors for partitioning
+    console.log("OCCURRENCES - patterns", this.patterns.length)
     this.occurrenceVectors = this.calculateSiatecOccurrences(this.points, this.patterns);
     if (this.optimizationMethods.indexOf(OPTIMIZATION.PARTITION) >= 0) {
+      console.log("PARTITIONING") //TODO PARTITION ONLY IF PATTERN LENGTH > MIN
       this.patterns = _.flatten<Pattern>(this.patterns.slice(0, 550).map((p,i) => this.partitionPattern(p, this.points, this.optimizationDimension, this.occurrenceVectors[i])));
+      this.patterns = this.patterns.filter(p => p.length >= this.minPatternLength);
     }
     if (this.optimizationMethods.indexOf(OPTIMIZATION.DIVIDE) >= 0) {
+      console.log("DIVIDING") //TODO DIVIDE ONLY IF PATTERN LENGTH > MIN
       this.patterns = _.flatten<Pattern>(this.patterns.map(p => this.dividePattern(p, this.points, this.optimizationDimension)));
+      this.patterns = this.patterns.filter(p => p.length >= this.minPatternLength);
     }
     if (this.optimizationMethods.indexOf(OPTIMIZATION.MINIMIZE) >= 0) {
+      console.log("MINIMIZING") //TODO MINIMIZE ONLY IF PATTERN LENGTH > MIN
       this.patterns = this.patterns.map(p => this.minimizePatternForReal(p, this.points, this.optimizationDimension));
+      this.patterns = this.patterns.filter(p => p.length >= this.minPatternLength);
     }
-    //console.log("VECTORS")
+    console.log("VECTORS - patterns", this.patterns.length)
     //recalculate occurrence vectors
     this.occurrenceVectors = this.calculateSiatecOccurrences(this.points, this.patterns);
-    //console.log("HEURISTICS")
+    console.log("HEURISTICS")
     this.heuristics = this.patterns.map((p,i) => this.selectionHeuristic(p, this.occurrenceVectors[i], null, this.points));
   }
 
@@ -81,7 +91,7 @@ export class Siatec {
 
   getOccurrences(patternIndices?: number[]): Occurrences[] {
     if (!this.occurrences) {
-      //console.log("OCCURRENCES")
+      console.log("OCCURRENCES")
       this.occurrences = this.occurrenceVectors.map((occ, i) => occ.map(tsl => this.patterns[i].map(pat => pat.map((p,k) => p + tsl[k]))));
     }
     return this.occurrences;

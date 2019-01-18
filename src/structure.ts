@@ -13,7 +13,6 @@ export interface IterativeSmithWatermanResult {
 
 export interface StructureOptions extends CosiatecOptions {
   quantizerFunctions: ArrayMap[],
-  minPatternLength?: number,
   minHeuristicValue?: number
 }
 
