@@ -5,7 +5,7 @@ import { HEURISTICS } from './heuristics'
 
 export interface CosiatecOptions extends SiatecOptions {
   overlapping?: boolean,
-  loggingOn?: boolean 
+  loggingOn?: boolean
 }
 
 export class Cosiatec {

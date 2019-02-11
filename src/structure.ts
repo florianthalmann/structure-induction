@@ -13,7 +13,8 @@ export interface IterativeSmithWatermanResult {
 
 export interface StructureOptions extends CosiatecOptions {
   quantizerFunctions: ArrayMap[],
-  minHeuristicValue?: number
+  minHeuristicValue?: number,
+  numPatterns?: number
 }
 
 export class StructureInducer {
@@ -50,6 +51,9 @@ export class StructureInducer {
     }
     if (this.options.minPatternLength) {
       occurrences = occurrences.filter(o => o[0].length >= this.options.minPatternLength);
+    }
+    if (this.options.numPatterns) {
+      occurrences = occurrences.slice(0, this.options.numPatterns);
     }
     return occurrences;
   }

@@ -50,6 +50,7 @@ export class Siatec {
     console.log("PATTERNS - points", this.points.length)
     this.vectorTable = this.getVectorTable(this.points);
     this.patterns = this.calculateSiaPatterns(this.points);
+    //always filter for patterns of min length to optimize runtime
     this.patterns = this.patterns.filter(p => p.length >= this.minPatternLength);
     //preliminary occurrence vectors for partitioning
     console.log("OCCURRENCES - patterns", this.patterns.length)
