@@ -1,106 +1,87 @@
 import * as _ from 'lodash'
 import { indexOfMax, compareArrays } from 'arrayutils'
-import { Siatec, SiatecOptions, OPTIMIZATION } from './siatec'
-import { HEURISTICS } from './heuristics'
+import { siatec, SiatecResult, Point } from './siatec';
+import { HEURISTICS, CosiatecHeuristic } from './heuristics'
 
-export interface CosiatecOptions extends SiatecOptions {
+export interface CosiatecOptions {
   overlapping?: boolean,
+  selectionHeuristic?: CosiatecHeuristic,
+  siatecResult?: SiatecResult,
   loggingOn?: boolean
 }
 
-export class Cosiatec {
+export interface CosiatecResult extends SiatecResult {
+  scores: number[]
+}
 
-  private points;
-  private patterns: number[][][] = [];
-  private occurrences: number[][][][] = [];
-  private vectors: number[][][] = [];
-  private heuristics: number[] = [];
+export function cosiatec(points: Point[], options: CosiatecOptions = {}): CosiatecResult {
+  if (!options.selectionHeuristic) options.selectionHeuristic = HEURISTICS.COMPACTNESS;
+  points = getSortedCloneWithoutDupes(points);
+  const result = recursiveCosiatec(points, options);
+  !options.loggingOn || logResult(result);
+  return result;
+}
 
-  constructor(points: number[][], private options?: CosiatecOptions) {
-    this.points = this.getSortedCloneWithoutDupes(points);
-    this.calculateCosiatecPatterns(this.options ? this.options.overlapping : false);
-    this.vectors = this.vectors.map(i => i.map(v => v.map(e => _.round(e,8)))); //eliminate float errors
-    if (this.options.loggingOn) {
-      console.log("patterns (length, occurrences, vector, heuristic):");
-      this.patterns.forEach((p,i) =>
-          console.log("  "+p.length + ", " + this.occurrences[i].length+ ", " + this.vectors[i][1]+ ", " + _.round(this.heuristics[i], 2)));
-    }
+/**
+ * returns an array of pairs of patterns along with their transpositions
+ * overlapping false: original cosiatec: performs sia iteratively on remaining points, returns the best patterns of each step
+ * overlapping true: jamie's cosiatec: performs sia only once, returns the best patterns necessary to cover all points
+ */
+function recursiveCosiatec(points: Point[], options: CosiatecOptions, heuristics?: number[]): CosiatecResult {
+  if (!options.siatecResult || !options.overlapping) 
+    options.siatecResult = siatec(points);
+  if (!heuristics || !options.overlapping)
+    heuristics = getHeuristics(points, options);
+  const iOfMaxScore = indexOfMax(heuristics);
+  const bestScore = heuristics[iOfMaxScore];
+  const bestPattern = options.siatecResult.patterns[iOfMaxScore];
+  const involvedPoints = new Set(_.flatten<number[]>(bestPattern.occurrences)
+    .map(p => JSON.stringify(p)));
+  const previousLength = points.length;
+  const remainingPoints = points.map(p => JSON.stringify(p))
+    .filter(p => !involvedPoints.has(p)).map(p => JSON.parse(p));
+  let result: CosiatecResult;
+  //recursive call if points and patterns remaining
+  if (remainingPoints.length > 0 && options.siatecResult.patterns.length > 0) {
+    removePatternAt(iOfMaxScore, options.siatecResult, heuristics);
+    result = recursiveCosiatec(remainingPoints, options, heuristics);
+  } else {
+    result = {points: points, patterns: [], scores: []};
   }
-
-  getPatterns(patternIndices?: number[]): number[][][] {
-    if (patternIndices != null) {
-      return this.patterns.filter((p,i) => patternIndices.indexOf(i) >= 0);
-    }
-    return this.patterns;
+  //only add to results if the pattern includes some points that are in no other pattern
+  if (previousLength > remainingPoints.length) {
+    !options.loggingOn || logPointsAndPatterns(remainingPoints, options.siatecResult);
+    result.patterns.unshift(bestPattern);
+    result.scores.unshift(bestScore);
   }
+  return result;
+}
 
-  getOccurrences(patternIndices?: number[]): number[][][][] {
-    if (patternIndices != null) {
-      return this.occurrences.filter((p,i) => patternIndices.indexOf(i) >= 0);
-    }
-    return this.occurrences;
-  }
+function getHeuristics(points: Point[], options: CosiatecOptions): number[] {
+  console.log("HEURISTICS")
+  return options.siatecResult.patterns.map(p =>
+    options.selectionHeuristic(p.points, p.vectors, p.occurrences, points));
+}
 
-  getOccurrenceVectors(): number[][][] {
-    return this.vectors;
-  }
-  
-  getHeuristics(): number[] {
-    return this.heuristics;
-  }
+function removePatternAt(index: number, result: SiatecResult, heuristics: number[]) {
+  [result.patterns, heuristics].forEach(a => a.splice(index, 1));
+}
 
-  /**
-   * returns an array of pairs of patterns along with their transpositions
-   * overlapping false: original cosiatec: performs sia iteratively on remaining points, returns the best patterns of each step
-   * overlapping true: jamie's cosiatec: performs sia only once, returns the best patterns necessary to cover all points
-   */
-  private calculateCosiatecPatterns(overlapping: boolean) {
-    var currentPoints = this.points;
-    let siatec = new Siatec(currentPoints, this.options);
-    let [patterns, vectors, heuristics] = [siatec.getPatterns(), siatec.getOccurrenceVectors(), siatec.getHeuristics()];
-    while (currentPoints.length > 0 && patterns.length > 0) {
-      var iOfMaxHeur = indexOfMax(heuristics);
-      let occurrences = siatec.getOccurrencesAt(iOfMaxHeur);
-      var involvedPoints = new Set(_.flatten<number[]>(occurrences).map(p => JSON.stringify(p)));
-      var previousLength = currentPoints.length;
-      currentPoints = currentPoints.map(p => JSON.stringify(p)).filter(p => !involvedPoints.has(p)).map(p => JSON.parse(p));
-      //only add to results if the pattern includes some points that are in no other pattern
-      if (!overlapping || previousLength > currentPoints.length) {
-        if (this.options.loggingOn) {
-          console.log("remaining:", currentPoints.length,
-            "patterns:", patterns.length,
-            "max pts:", _.max(patterns.map(p=>p.length)));
-        }
-        this.patterns.push(patterns[iOfMaxHeur]);
-        this.occurrences.push(occurrences);
-        this.vectors.push(vectors[iOfMaxHeur]);
-        this.heuristics.push(heuristics[iOfMaxHeur]);
-      }
-      if (overlapping) {
-        this.removeElementAt(iOfMaxHeur, patterns, vectors, heuristics);
-      } else {
-        siatec = new Siatec(currentPoints, this.options);
-        [patterns, vectors, heuristics] = [siatec.getPatterns(), siatec.getOccurrenceVectors(), siatec.getHeuristics()];
-      }
-    }
-  }
+function getSortedCloneWithoutDupes<T>(array: T[]): T[] {
+  var clone = _.uniq(array);
+  clone.sort(compareArrays);
+  return clone;
+}
 
-  private getSiatec(points: number[][]) {
-    var siatec = new Siatec(points, this.options);
-    var patterns = siatec.getPatterns();
-    var vectors = siatec.getOccurrenceVectors();
-    var heuristics = siatec.getHeuristics();
-    return [patterns, vectors, heuristics];
-  }
+function logPointsAndPatterns(points: Point[], result: SiatecResult) {
+  console.log("remaining:", points.length,
+    "patterns:", result.patterns.length,
+    "max length:", _.max(result.patterns.map(p => p.points.length)));
+}
 
-  private removeElementAt(index: number, ...arrays) {
-    arrays.forEach(a => a.splice(index, 1));
-  }
-
-  private getSortedCloneWithoutDupes(array) {
-    var clone = _.uniq(array);
-    clone.sort(compareArrays);
-    return clone;
-  }
-
+function logResult(result: CosiatecResult) {
+  console.log("patterns (length, occurrences, vector, heuristic):");
+  result.patterns.forEach((p,i) =>
+      console.log("  "+p.points.length + ", " + p.occurrences.length+ ", "
+        + p.vectors[1]+ ", " + _.round(result.scores[i], 2)));
 }

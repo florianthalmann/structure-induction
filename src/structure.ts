@@ -2,7 +2,8 @@ import * as _ from 'lodash'
 import * as math from 'mathjs'
 import { indexOfMax } from 'arrayutils';
 import { Quantizer, ArrayMap } from './quantizer'
-import { Cosiatec, CosiatecOptions } from './cosiatec'
+import { cosiatec } from './cosiatec'
+import { opsiatec, OpsiatecOptions } from './opsiatec'
 import { SmithWaterman, SmithWatermanResult, TRACES } from './smith-waterman'
 
 export interface IterativeSmithWatermanResult {
@@ -11,7 +12,7 @@ export interface IterativeSmithWatermanResult {
   segmentMatrix: number[][],
 }
 
-export interface StructureOptions extends CosiatecOptions {
+export interface StructureOptions extends OpsiatecOptions {
   quantizerFunctions: ArrayMap[],
   minHeuristicValue?: number,
   numPatterns?: number
@@ -43,14 +44,11 @@ export class StructureInducer {
 
   //returns occurrences of patterns in the original point sequence
   getCosiatecOccurrences(patternIndices?: number[]): number[][][][] {
-    const cosiatec = new Cosiatec(this.quantizedPoints, this.options);
-    let occurrences = cosiatec.getOccurrences(patternIndices);
+    const result =  opsiatec(this.quantizedPoints, this.options);
+    let occurrences =  result.patterns.map(p => p.occurrences);
     if (this.options.minHeuristicValue) {
-      const heuristics = cosiatec.getHeuristics();
-      occurrences = occurrences.filter((_,i) => heuristics[i] >= this.options.minHeuristicValue);
-    }
-    if (this.options.minPatternLength) {
-      occurrences = occurrences.filter(o => o[0].length >= this.options.minPatternLength);
+      occurrences = occurrences.filter((_,i) =>
+        result.scores[i] >= this.options.minHeuristicValue);
     }
     if (this.options.numPatterns) {
       occurrences = occurrences.slice(0, this.options.numPatterns);
@@ -230,12 +228,10 @@ export class StructureInducer {
   }
 
   getStructure(minPatternLength = 12) {
-    let cosiatec = new Cosiatec(this.quantizedPoints, this.options);
-    let vectors = cosiatec.getOccurrenceVectors();
-    let occurrences = cosiatec.getOccurrences();
+    let result = opsiatec(this.quantizedPoints, this.options);
+    let occurrences =  result.patterns.map(p => p.occurrences);
+    let vectors =  result.patterns.map(p => p.vectors);
     //only take patterns that are significantly large
-    vectors = vectors.filter((vec,i) => occurrences[i][0].length > minPatternLength);
-    occurrences = occurrences.filter(occ => occ[0].length > minPatternLength);
     let patternSpans = occurrences.map(occ => this.getPatternSpan(occ[0]));
     //sort in ascending order by norm of translation vector
     let avgTsls = vectors.map(vs => math.mean(vs.map(v => Math.sqrt(math.sum(v.map(p => Math.pow(p,2)))))));

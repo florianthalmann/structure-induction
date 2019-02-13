@@ -1,10 +1,10 @@
 import * as _ from 'lodash'
 
-export module HEURISTICS {
+export interface CosiatecHeuristic {
+	(pattern: number[][], vectors: number[][], occurrences: number[][][], allPoints: number[][]): number;
+}
 
-	export interface CosiatecHeuristic {
-		(pattern: number[][], vectors: number[][], occurrences: number[][][], allPoints: number[][]): number;
-	}
+export module HEURISTICS {
 
 	/**number of points in pattern*/
 	export const POINT_COUNT: CosiatecHeuristic = function(pattern: number[][], vectors: number[][], occurrences: number[][][], allPoints: number[][]) {

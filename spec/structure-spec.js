@@ -1,7 +1,8 @@
 var _ = require('lodash');
 var StructureInducer = require('../lib/structure').StructureInducer;
-var Siatec = require('../lib/siatec').Siatec;
-var Cosiatec = require('../lib/cosiatec').Cosiatec;
+var siatec = require('../lib/siatec').siatec;
+var cosiatec = require('../lib/cosiatec').cosiatec;
+var optimizer = require('../lib/optimizer');
 var Quantizer = require('../lib/quantizer').Quantizer;
 var QUANT_FUNCS = require('../lib/quantizer').QUANT_FUNCS;
 var HEURISTICS = require('../lib/heuristics').HEURISTICS;
@@ -10,8 +11,13 @@ describe("a structure induction algorithm", function() {
 
 	//example from figure 12 in meredith-lemström-wiggins 2003
 	//dimensions reversed due to order reversing in easystore
-	//points (3,4), (4,5) added to test iterative cosiatec
+	//points (4,3), (5,4) added to test iterative cosiatec
 	var points = [[1,1],[1,3],[2,1],[2,2],[2,3],[3,2],[4,3],[5,4]];
+	//4         x
+	//3 x x   x
+	//2   x x
+	//1 x x 
+	//. 1 2 3 4 5
 
 	/*it ("can build a hierarchy from patterns", function() {
 		var inducer = new StructureInducer(points);
@@ -20,60 +26,77 @@ describe("a structure induction algorithm", function() {
 	});*/
 
 	it("can find repeating geometric patterns", function() {
-		var siatec = new Siatec(points);
-		var patterns = siatec.getPatterns();
+		var result = siatec(points);
 
-		expect(patterns.length).toBe(17);
-		expect(patterns[5].length).toBe(4);
+		expect(result.patterns.length).toBe(17);
+		expect(result.patterns[5].points.length).toBe(4);
 
-		var occurrences = siatec.getOccurrences();
+		var occurrences = result.patterns.map(p => p.occurrences);
 		expect(occurrences.length).toBe(17);
 		expect(occurrences[2].length).toBe(3);
 		//console.log(JSON.stringify(occurrences))
 
-		var minimized = siatec.minimizePattern(patterns[5], points);
+		var original = result.patterns[5];
+		var minimized = optimizer.minimize(result, HEURISTICS.COMPACTNESS, 0);
+		minimized = minimized.patterns[5];
 		//console.log(JSON.stringify(minimized));
-		expect(patterns[5].length).toBe(4);
-		expect(minimized.length).toBe(2);
-		expect(HEURISTICS.COMPACTNESS(patterns[5], null, null, points)).toBe(0.5714285714285714);
-		expect(HEURISTICS.COMPACTNESS(minimized, null, null, points)).toBe(1);
+		expect(original.points.length).toBe(4);
+		expect(minimized.points.length).toBe(2);
+		expect(HEURISTICS.COMPACTNESS(original.points, null, null, points)).toBe(0.5714285714285714);
+		expect(HEURISTICS.COMPACTNESS(minimized.points, null, null, points)).toBe(1);
 
-		var divided = siatec.dividePattern(patterns[5], points);
-		console.log(JSON.stringify(divided));
-		expect(divided.length).toBe(2);
-		expect(divided[0].length).toBe(2);
-		expect(divided[1].length).toBe(2);
+		var divided = optimizer
+			.dividePattern(original, points, 0, HEURISTICS.COMPACTNESS)
+			.map(p => p.points);
+		expect(JSON.stringify(divided)).toBe('[[[1,1]],[[2,1]],[[3,2],[4,3]]]');
 		
-		var partitioned = siatec.partitionPattern(patterns[5], points, 0, [[0,0],[2,0]]);
-		expect(JSON.stringify(partitioned)).toBe('[[[1,1],[2,1]],[[3,2],[4,3]]]');
-		partitioned = siatec.partitionPattern(patterns[5], points, 0, siatec.getOccurrenceVectors()[5]);
+		var partitioned = optimizer
+			.partitionPattern(original, points, 0, HEURISTICS.COMPACTNESS)
+			.map(p => p.points);
+		//all individual partitions due to vectors [[0,0],[1,1]]
 		expect(JSON.stringify(partitioned)).toBe('[[[1,1]],[[2,1]],[[3,2]],[[4,3]]]');
-		partitioned = siatec.partitionPattern(patterns[5], points, 0, [[0,0],[3,0]]);
+		
+		original.vectors = [[0,0],[2,0]];
+		partitioned = optimizer
+			.partitionPattern(original, points, 0, HEURISTICS.COMPACTNESS)
+			.map(p => p.points);
+		//partition down the middle the best
+		expect(JSON.stringify(partitioned)).toBe('[[[1,1],[2,1]],[[3,2],[4,3]]]');
+		
+		original.vectors = [[0,0],[3,0]];
+		partitioned = optimizer
+			.partitionPattern(original, points, 0, HEURISTICS.COMPACTNESS)
+			.map(p => p.points);
+		//partition down the middle still heuristically the best
 		expect(JSON.stringify(partitioned)).toBe('[[[1,1],[2,1]],[[3,2],[4,3]]]');
 	});
 
 	it("can select the best patterns", function() {
 		//non-overlapping patterns
-		var cosiatec = new Cosiatec(points);
-		var patterns = cosiatec.getPatterns();
-		expect(JSON.stringify(patterns)).toEqual("[[[1,1],[2,2]],[[1,3]]]");
+		var result = cosiatec(points, {selectionHeuristic: HEURISTICS.SIZE_AND_1D_COMPACTNESS(0)});
+		var patterns = result.patterns.map(p => p.points);
+		expect(JSON.stringify(patterns)).toEqual("[[[1,1],[2,1],[3,2],[4,3]],[[1,3]]]");
 
 		//overlapping patterns
-		cosiatec = new Cosiatec(points, {overlapping: true});
-		patterns = cosiatec.getPatterns();
-		expect(JSON.stringify(patterns)).toEqual("[[[1,1],[2,2]],[[1,1],[1,3],[2,2]]]");
+		result = cosiatec(points, {overlapping: true, selectionHeuristic: HEURISTICS.SIZE_AND_1D_COMPACTNESS(0)});
+		patterns = result.patterns.map(p => p.points);
+		expect(JSON.stringify(patterns)).toEqual("[[[1,1],[2,1],[3,2],[4,3]],[[1,1],[1,3],[2,2]]]");
 	});
 
 	it("has various different heuristics", function() {
-		var siatec = new Siatec(points);
-		var patterns = siatec.getPatterns();
-		var occurrences = siatec.getOccurrences();
+		var result = siatec(points);
 
-		var coverage = patterns.map((p,i) => HEURISTICS.COVERAGE(p, null, occurrences[i], points));
+		var coverage = result.patterns.map(p => HEURISTICS.COVERAGE(p.points, null, p.occurrences, points));
 		expect(coverage).toEqual([ 0.375, 0.75, 0.75, 1, 0.75, 0.75, 1, 1, 1, 0.75, 0.75, 1, 1, 0.75, 1, 1, 1 ]);
 
-		var compactness = patterns.map(p => HEURISTICS.COMPACTNESS(p, null, null, points));
-		expect(compactness).toEqual([ 0.5, 0.4, 0.4, 0.125, 0.6, 0.5714285714285714, 0.125, 0.125, 0.125, 0.6666666666666666, 0.6666666666666666, 0.125, 0.125, 0.6666666666666666, 0.125, 0.125, 0.125 ]);
+		var compactness = result.patterns.map(p => HEURISTICS.COMPACTNESS(p.points, null, null, points));
+		expect(compactness).toEqual([ 1, 1, 1, 1, 0.6, 0.5714285714285714, 1, 1, 1, 0.6666666666666666, 0.6666666666666666, 1, 1, 0.6666666666666666, 1, 1, 1 ]);
+		
+		var sizeComp = result.patterns.map(p => HEURISTICS.SIZE_AND_COMPACTNESS(p.points, null, null, points));
+		expect(sizeComp).toEqual([ 1.7411011265922482, 1.7411011265922482, 1.7411011265922482, 1, 1.4449348111684153, 1.7322475045833123, 1, 1, 1, 1.1607340843948322, 1.1607340843948322, 1, 1, 1.1607340843948322, 1, 1, 1 ]);
+		
+		var size1DComp = result.patterns.map(p => HEURISTICS.SIZE_AND_1D_COMPACTNESS(0)(p.points, null, null, points));
+		expect(size1DComp).toEqual([ 1.1607340843948322, 0.6964404506368993, 0.6964404506368993, 0.5, 1.4449348111684153, 1.7322475045833123, 0.5, 0.5, 0.3333333333333333, 0.6964404506368993, 0.8705505632961241, 0.5, 0.3333333333333333, 0.6964404506368993, 0.3333333333333333, 0.5, 0.5 ]);
 		
 		//test bounding box
 		//const points = HEURISTICS.getPointsInBoundingBox()
@@ -89,6 +112,5 @@ describe("a structure induction algorithm", function() {
 		result = JSON.stringify(quantizer.getQuantizedPoints([[[0,2,3]],[[1,1,2]],[[7,9,2]],[[0,3,1]]]));
 		expect(result === "[[0],[0],[1],[0]]" || result === "[[1],[1],[0],[1]]").toBe(true);
 	});
-
 
 });
