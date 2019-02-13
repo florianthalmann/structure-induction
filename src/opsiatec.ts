@@ -13,17 +13,24 @@ export interface OpsiatecOptions extends CosiatecOptions {
 }
 
 export function opsiatec(points: Point[], options: OpsiatecOptions): CosiatecResult {
-  const siatecResult = getCachedOrRun<SiatecResult>('siatec.json',
+  const siatecResult = getCachedOrRun<SiatecResult>(
+    'siatec.json',
     () => siatec(points), options);
   
-  //TODO MAKE THIS FILE MORE DEPENDENT OF OPTIM TYPES!!!!!
-  const optimized = getCachedOrRun<SiatecResult>('optimized.json',
+  const optimized = getCachedOrRun<SiatecResult>(
+    'optimized_'+getOptionsString(options)+'.json',
     () => getOptimizedPatterns(siatecResult, options), options);
   
-  //TODO MAKE THIS FILE MORE DEPENDENT OF OPTIM TYPES!!!!!
   options.siatecResult = optimized;
-  return getCachedOrRun<CosiatecResult>('cosiatec.json',
+  return getCachedOrRun<CosiatecResult>(
+    'cosiatec_'+getOptionsString(options)+'.json',
     () => cosiatec(points, options), options);
+}
+
+function getOptionsString(options: OpsiatecOptions) {
+  return options.optimizationMethods.map(m => m.toString()).join()
+    +'_'+ (options.optimizationDimension != null ? options.optimizationDimension : '')
+    +'_'+ (options.minPatternLength != null ? options.minPatternLength : '');
 }
 
 function getOptimizedPatterns(input: SiatecResult, options: OpsiatecOptions): SiatecResult {
@@ -53,7 +60,7 @@ function getOptimizedPatterns(input: SiatecResult, options: OpsiatecOptions): Si
 
 function getCachedOrRun<T>(file: string, func: () => T, options: OpsiatecOptions): T {
   let results: T;
-  if (options.cacheDir) {
+  if (options.cacheDir && fs.existsSync(options.cacheDir+file)) {
     results = <T>loadJson(options.cacheDir+file);
   }
   if (!results) {
