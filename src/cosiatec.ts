@@ -42,7 +42,7 @@ function recursiveCosiatec(points: Point[], options: CosiatecOptions, heuristics
     .filter(p => !involvedPoints.has(p)).map(p => JSON.parse(p));
   let result: CosiatecResult;
   //recursive call if points and patterns remaining
-  if (remainingPoints.length > 0 && options.siatecResult.patterns.length > 0) {
+  if (remainingPoints.length > 0 && options.siatecResult.patterns.length > 1) {
     removePatternAt(iOfMaxScore, options.siatecResult, heuristics);
     result = recursiveCosiatec(remainingPoints, options, heuristics);
   } else {

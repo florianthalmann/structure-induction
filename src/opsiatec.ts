@@ -31,21 +31,21 @@ function getOptimizedPatterns(input: SiatecResult, options: OpsiatecOptions): Si
   let result = minLength(input, options.minPatternLength);
   
   if (options.optimizationMethods.indexOf(OPTIMIZATION.PARTITION) >= 0) {
-    console.log("PARTITIONING") //TODO PARTITION ONLY IF PATTERN LENGTH > MIN
+    //TODO PARTITION ONLY IF PATTERN LENGTH > MIN
     result = partition(result, options.optimizationHeuristic, options.optimizationDimension);
-    result = minLength(input, options.minPatternLength);
+    result = minLength(result, options.minPatternLength);
   }
   
   if (options.optimizationMethods.indexOf(OPTIMIZATION.DIVIDE) >= 0) {
-    console.log("DIVIDING") //TODO DIVIDE ONLY IF PATTERN LENGTH > MIN
+    //TODO DIVIDE ONLY IF PATTERN LENGTH > MIN
     result = divide(result, options.optimizationHeuristic, options.optimizationDimension);
-    result = minLength(input, options.minPatternLength);
+    result = minLength(result, options.minPatternLength);
   }
   
   if (options.optimizationMethods.indexOf(OPTIMIZATION.MINIMIZE) >= 0) {
-    console.log("MINIMIZING") //TODO MINIMIZE ONLY IF PATTERN LENGTH > MIN
+    //TODO MINIMIZE ONLY IF PATTERN LENGTH > MIN
     result = minimize(result, options.optimizationHeuristic, options.optimizationDimension);
-    result = minLength(input, options.minPatternLength);
+    result = minLength(result, options.minPatternLength);
   }
   
   return result;
