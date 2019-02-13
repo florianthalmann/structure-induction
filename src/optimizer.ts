@@ -41,10 +41,10 @@ function minimizePattern(pattern: SiatecPattern, allPoints: Point[], dimension: 
   const points = cloneAndSortPoints(pattern, dimension);
   if (points.length > 1) {
     //all possible connected subpatterns
-    const subPatterns: Pattern[] = _.flatten<Pattern>(points.map((_,i) =>
-      points.map((_,j) => points.slice(i, points.length-j))));
-    const heuristics = getAllHeuristics(subPatterns, allPoints, heuristic);
-    return newPattern(subPatterns[indexOfMax(heuristics)], pattern.vectors);
+    const subPatterns = _.flatten<SiatecPattern>(points.map((_,i) =>
+      points.map((_,j) => newPattern(points.slice(i, points.length-j), pattern.vectors))));
+    const heuristics = subPatterns.map(p => heuristic(p, allPoints));
+    return subPatterns[indexOfMax(heuristics)];
   }
   return pattern;
 }
@@ -55,11 +55,12 @@ export function dividePattern(pattern: SiatecPattern, allPoints: Point[], dimens
 } 
 
 function recursiveDividePattern(pattern: SiatecPattern, allPoints: Point[], dimension: number, heuristic: CosiatecHeuristic): SiatecPattern[] {
-  const currentHeuristicValue = heuristic(pattern.points, pattern.vectors, pattern.occurrences, allPoints);
+  const currentHeuristicValue = heuristic(pattern, allPoints);
   if (pattern.points.length > 1) {
     const patternPairs = pattern.points.map((_,i) =>
       [pattern.points.slice(0,i), pattern.points.slice(i)]);
-    const heuristics = patternPairs.map(p => getAllHeuristics(p, allPoints, heuristic));
+    const heuristics = patternPairs.map(ps => ps.map(p =>
+      heuristic(newPattern(p, pattern.vectors), allPoints)));
     const maxes = heuristics.map(_.max);
     const index: number = indexOfMax(maxes);
     if (maxes[index] > currentHeuristicValue) {
@@ -95,8 +96,8 @@ export function partitionPattern(pattern: SiatecPattern, allPoints: Point[], dim
           return result;
         }, [[]]));
       if (partitions.length > 0) {
-        const heuristics = partitions.map(p => getAllHeuristics(p, allPoints, heuristic));
-        //console.log(partitions.map(p => p.map(s => s.length)), heuristics);
+        const heuristics = partitions.map(ps => ps.map(p =>
+          heuristic(newPattern(p, pattern.vectors), allPoints)));
         const maxes = heuristics.map(_.max);
         const i = indexOfMax(maxes);
         const numMaxes = maxes.reduce((n,m) => n + (m == maxes[i] ? 1 : 0), 0);
@@ -123,8 +124,4 @@ function newPattern(points: Point[], vectors: Vector[]): SiatecPattern {
     vectors: vectors,
     occurrences: vectors.map(v => points.map(pat => pat.map((p,k) => p + v[k])))
   }
-}
-
-function getAllHeuristics(patterns: Pattern[], allPoints: Point[], heuristic: CosiatecHeuristic): number[] {
-  return patterns.map(s => heuristic(s, null, null, allPoints)); //TODO SOMEHOW GET OCCURRENCES!!
 }

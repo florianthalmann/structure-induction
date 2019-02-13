@@ -42,8 +42,8 @@ describe("a structure induction algorithm", function() {
 		//console.log(JSON.stringify(minimized));
 		expect(original.points.length).toBe(4);
 		expect(minimized.points.length).toBe(2);
-		expect(HEURISTICS.COMPACTNESS(original.points, null, null, points)).toBe(0.5714285714285714);
-		expect(HEURISTICS.COMPACTNESS(minimized.points, null, null, points)).toBe(1);
+		expect(HEURISTICS.COMPACTNESS(original, points)).toBe(0.5714285714285714);
+		expect(HEURISTICS.COMPACTNESS(minimized, points)).toBe(1);
 
 		var divided = optimizer
 			.dividePattern(original, points, 0, HEURISTICS.COMPACTNESS)
@@ -86,16 +86,16 @@ describe("a structure induction algorithm", function() {
 	it("has various different heuristics", function() {
 		var result = siatec(points);
 
-		var coverage = result.patterns.map(p => HEURISTICS.COVERAGE(p.points, null, p.occurrences, points));
+		var coverage = result.patterns.map(p => HEURISTICS.COVERAGE(p, points));
 		expect(coverage).toEqual([ 0.375, 0.75, 0.75, 1, 0.75, 0.75, 1, 1, 1, 0.75, 0.75, 1, 1, 0.75, 1, 1, 1 ]);
 
-		var compactness = result.patterns.map(p => HEURISTICS.COMPACTNESS(p.points, null, null, points));
+		var compactness = result.patterns.map(p => HEURISTICS.COMPACTNESS(p, points));
 		expect(compactness).toEqual([ 1, 1, 1, 1, 0.6, 0.5714285714285714, 1, 1, 1, 0.6666666666666666, 0.6666666666666666, 1, 1, 0.6666666666666666, 1, 1, 1 ]);
 		
-		var sizeComp = result.patterns.map(p => HEURISTICS.SIZE_AND_COMPACTNESS(p.points, null, null, points));
+		var sizeComp = result.patterns.map(p => HEURISTICS.SIZE_AND_COMPACTNESS(p, points));
 		expect(sizeComp).toEqual([ 1.7411011265922482, 1.7411011265922482, 1.7411011265922482, 1, 1.4449348111684153, 1.7322475045833123, 1, 1, 1, 1.1607340843948322, 1.1607340843948322, 1, 1, 1.1607340843948322, 1, 1, 1 ]);
 		
-		var size1DComp = result.patterns.map(p => HEURISTICS.SIZE_AND_1D_COMPACTNESS(0)(p.points, null, null, points));
+		var size1DComp = result.patterns.map(p => HEURISTICS.SIZE_AND_1D_COMPACTNESS(0)(p, points));
 		expect(size1DComp).toEqual([ 1.1607340843948322, 0.6964404506368993, 0.6964404506368993, 0.5, 1.4449348111684153, 1.7322475045833123, 0.5, 0.5, 0.3333333333333333, 0.6964404506368993, 0.8705505632961241, 0.5, 0.3333333333333333, 0.6964404506368993, 0.3333333333333333, 0.5, 0.5 ]);
 		
 		//test bounding box

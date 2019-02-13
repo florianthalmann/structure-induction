@@ -60,7 +60,7 @@ function recursiveCosiatec(points: Point[], options: CosiatecOptions, heuristics
 function getHeuristics(points: Point[], options: CosiatecOptions): number[] {
   console.log("HEURISTICS")
   return options.siatecResult.patterns.map(p =>
-    options.selectionHeuristic(p.points, p.vectors, p.occurrences, points));
+    options.selectionHeuristic(p, points));
 }
 
 function removePatternAt(index: number, result: SiatecResult, heuristics: number[]) {
