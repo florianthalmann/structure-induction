@@ -20,12 +20,10 @@ export interface SiatecResult {
 let vectorTable: [Vector, Point][][];
 
 export function siatec(points: number[][]): SiatecResult {
-  console.log("PATTERNS - points", points.length)
   vectorTable = getVectorTable(points);
   const patterns = calculateSiaPatterns();
   const vectors = calculateSiatecOccurrences(points, patterns)
     .map(i => i.map(v => v.map(e => _.round(e,8)))); //eliminate float errors
-  console.log("OCCURRENCES")
   const occurrences = vectors.map((occ, i) => occ.map(tsl =>
     patterns[i].map(pat => pat.map((p,k) => p + tsl[k]))));
   return {
@@ -65,7 +63,6 @@ function getIntersection(vectors: Vector[][]): Vector[] {
   if (vectors.length > 1) {
     var isect = vectors.slice(1).reduce((isect, tsls) =>
       intersectSortedArrays(isect, tsls), vectors[0]);
-    //console.log(JSON.stringify(points), JSON.stringify(isect));
     return isect;
   }
   return vectors[0];

@@ -17,21 +17,18 @@ export function minLength(input: SiatecResult, minLength: number): SiatecResult 
 }
 
 export function minimize(input: SiatecResult, heuristic: CosiatecHeuristic, dimension: number): SiatecResult {
-  console.log("MINIMIZING") //TODO PARTITION ONLY IF PATTERN LENGTH > MIN
   const patterns = input.patterns.map(p =>
     minimizePattern(p, input.points, dimension, heuristic));
   return { points: input.points, patterns: patterns };
 }
 
 export function divide(input: SiatecResult, heuristic: CosiatecHeuristic, dimension: number): SiatecResult {
-  console.log("DIVIDING") //TODO PARTITION ONLY IF PATTERN LENGTH > MIN
   const patterns = _.flatten<SiatecPattern>(input.patterns.map(p =>
     dividePattern(p, input.points, dimension, heuristic)));
   return { points: input.points, patterns: patterns };
 }
 
 export function partition(input: SiatecResult, heuristic: CosiatecHeuristic, dimension: number): SiatecResult {
-  console.log("PARTITIONING") //TODO PARTITION ONLY IF PATTERN LENGTH > MIN
   const patterns = _.flatten<SiatecPattern>(input.patterns.map(p =>
     partitionPattern(p, input.points, dimension, heuristic)));
   return { points: input.points, patterns: patterns };

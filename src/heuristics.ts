@@ -38,13 +38,11 @@ export module HEURISTICS {
 	}
 
 	export function getPointsInBoundingBox(pattern: number[][], allPoints: number[][], dimIndex?: number) {
-		//console.log(pattern, dimIndex, allPoints.length)
 		var maxes = _.zip(...pattern).map(c => _.max(c));
 		var mins = _.zip(...pattern).map(c => _.min(c));
 		if (dimIndex != null) {
 			return allPoints.filter(p => mins[dimIndex] <= p[dimIndex] && p[dimIndex] <= maxes[dimIndex]);
 		}
-		//console.log("BOUNDING", pattern, allPoints, mins, maxes, allPoints.filter(p => p.every((e,i) => (mins[i] <= e && e <= maxes[i]))))
 		return allPoints.filter(p => p.every((e,i) => mins[i] <= e && e <= maxes[i]));
 	}
 
