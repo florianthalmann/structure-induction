@@ -13,23 +13,41 @@ export interface OpsiatecOptions extends CosiatecOptions {
 }
 
 export function opsiatec(points: Point[], options: OpsiatecOptions): CosiatecResult {
-  !options.loggingOn || console.log("SIATEC");
-  let result = getCachedOrRun<SiatecResult>(
-    'siatec.json',
-    () => siatec(points), options);
-  
-  if (needToOptimize(options)) {
-    !options.loggingOn || console.log("OPTIMIZING");
-    result = getCachedOrRun<SiatecResult>(
-      'optimized_'+getOptimOptionsString(options)+'.json',
-      () => getOptimizedPatterns(result, options), options);
+  return getCosiatec(points, options);
+}
+
+function getCosiatec(points: Point[], options: OpsiatecOptions): CosiatecResult {
+  const file = 'cosiatec_'+getCosiatecOptionsString(options)+'.json';
+  let result = <CosiatecResult>loadCached(file, options);
+  if (!result) {
+    options.siatecResult = getOptimized(points, options);
+    result = performAndCache("COSIATEC",
+      () => cosiatec(points, options), file, options);
   }
-  
-  !options.loggingOn || console.log("COSIATEC");
-  options.siatecResult = result;
-  return getCachedOrRun<CosiatecResult>(
-    'cosiatec_'+getCosiatecOptionsString(options)+'.json',
-    () => cosiatec(points, options), options);
+  return result;
+}
+
+function getOptimized(points: Point[], options: OpsiatecOptions): SiatecResult {
+  if (needToOptimize(options)) {
+    const file = 'optimized_'+getOptimOptionsString(options)+'.json';
+    let result = <SiatecResult>loadCached(file, options);
+    if (!result) {
+      const input = getSiatec(points, options);
+      result = performAndCache<SiatecResult>("OPTIMIZING",
+        () => getOptimizedPatterns(input, options), file, options);
+    }
+    return result;
+  }
+  return getSiatec(points, options);
+}
+
+function getSiatec(points: Point[], options: OpsiatecOptions): SiatecResult {
+  const file = 'siatec.json';
+  let result = <SiatecResult>loadCached(file, options);
+  if (!result) {
+    performAndCache("SIATEC", () => siatec(points), file, options);
+  }
+  return result;
 }
 
 function getCosiatecOptionsString(options: OpsiatecOptions) {
@@ -75,18 +93,23 @@ function getOptimizedPatterns(input: SiatecResult, options: OpsiatecOptions): Si
   return result;
 }
 
-function getCachedOrRun<T>(file: string, func: () => T, options: OpsiatecOptions): T {
-  let results: T;
+function performAndCache<T>(taskname: string, func: () => T, filename: string, options: OpsiatecOptions) {
+  !options.loggingOn || console.log(taskname);
+  const result = func();
+  saveCached(filename, result, options);
+  return result;
+}
+
+function loadCached<T>(file: string, options: OpsiatecOptions) {
   if (options.cacheDir && fs.existsSync(options.cacheDir+file)) {
-    results = <T>loadJson(options.cacheDir+file);
+    return <T>loadJson(options.cacheDir+file);
   }
-  if (!results) {
-    results = func();
-    if (options.cacheDir) {
-      saveJson(options.cacheDir+file, results);
-    }
+}
+
+function saveCached(file: string, contents: {}, options: OpsiatecOptions) {
+  if (options.cacheDir) {
+    saveJson(options.cacheDir+file, contents);
   }
-  return results;
 }
 
 function loadJson(file: string) {
