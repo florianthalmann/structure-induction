@@ -9,7 +9,7 @@ export interface OpsiatecOptions extends CosiatecOptions {
   optimizationHeuristic?: CosiatecHeuristic,
   optimizationDimension?: number,
   minPatternLength?: number,
-  cacheDir: string
+  cacheDir?: string
 }
 
 export function opsiatec(points: Point[], options: OpsiatecOptions): CosiatecResult {
