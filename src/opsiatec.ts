@@ -21,7 +21,7 @@ function getCosiatec(points: Point[], options: OpsiatecOptions): CosiatecResult 
   let result = <CosiatecResult>loadCached(file, options);
   if (!result) {
     options.siatecResult = getOptimized(points, options);
-    result = performAndCache("COSIATEC",
+    result = performAndCache("    COSIATEC",
       () => cosiatec(points, options), file, options);
   }
   return result;
@@ -33,7 +33,7 @@ function getOptimized(points: Point[], options: OpsiatecOptions): SiatecResult {
     let result = <SiatecResult>loadCached(file, options);
     if (!result) {
       const input = getSiatec(points, options);
-      result = performAndCache<SiatecResult>("OPTIMIZING",
+      result = performAndCache<SiatecResult>("    OPTIMIZING",
         () => getOptimizedPatterns(input, options), file, options);
     }
     return result;
@@ -45,7 +45,7 @@ function getSiatec(points: Point[], options: OpsiatecOptions): SiatecResult {
   const file = 'siatec.json';
   let result = <SiatecResult>loadCached(file, options);
   if (!result) {
-    result = performAndCache("SIATEC", () => siatec(points), file, options);
+    result = performAndCache("    SIATEC", () => siatec(points), file, options);
   }
   return result;
 }
@@ -71,21 +71,21 @@ function getOptimizedPatterns(input: SiatecResult, options: OpsiatecOptions): Si
   
   if (options.optimizationMethods.indexOf(OPTIMIZATION.PARTITION) >= 0) {
     //TODO PARTITION ONLY IF PATTERN LENGTH > MIN
-    !options.loggingOn || console.log("PARTITIONING");
+    if (options.loggingLevel > 0) console.log("    PARTITIONING");
     result = partition(result, options.optimizationHeuristic, options.optimizationDimension);
     result = minLength(result, options.minPatternLength);
   }
   
   if (options.optimizationMethods.indexOf(OPTIMIZATION.DIVIDE) >= 0) {
     //TODO DIVIDE ONLY IF PATTERN LENGTH > MIN
-    !options.loggingOn || console.log("DIVIDING");
+    if (options.loggingLevel > 0) console.log("    DIVIDING");
     result = divide(result, options.optimizationHeuristic, options.optimizationDimension);
     result = minLength(result, options.minPatternLength);
   }
   
   if (options.optimizationMethods.indexOf(OPTIMIZATION.MINIMIZE) >= 0) {
     //TODO MINIMIZE ONLY IF PATTERN LENGTH > MIN
-    !options.loggingOn || console.log("MINIMIZING");
+    if (options.loggingLevel > 0) console.log("    MINIMIZING");
     result = minimize(result, options.optimizationHeuristic, options.optimizationDimension);
     result = minLength(result, options.minPatternLength);
   }
@@ -94,7 +94,7 @@ function getOptimizedPatterns(input: SiatecResult, options: OpsiatecOptions): Si
 }
 
 function performAndCache<T>(taskname: string, func: () => T, filename: string, options: OpsiatecOptions) {
-  !options.loggingOn || console.log(taskname);
+  if (options.loggingLevel > 0) console.log(taskname);
   const result = func();
   saveCached(filename, result, options);
   return result;

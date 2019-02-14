@@ -7,7 +7,7 @@ export interface CosiatecOptions {
   overlapping?: boolean,
   selectionHeuristic?: CosiatecHeuristic,
   siatecResult?: SiatecResult,
-  loggingOn?: boolean
+  loggingLevel?: number
 }
 
 export interface CosiatecResult extends SiatecResult {
@@ -18,7 +18,7 @@ export function cosiatec(points: Point[], options: CosiatecOptions = {}): Cosiat
   if (!options.selectionHeuristic) options.selectionHeuristic = HEURISTICS.COMPACTNESS;
   points = getSortedCloneWithoutDupes(points);
   const result = cosiatecLoop(points, options);
-  !options.loggingOn || logResult(result);
+  if (options.loggingLevel > 1) logResult(result);
   return result;
 }
 
@@ -43,7 +43,7 @@ function cosiatecLoop(points: Point[], options: CosiatecOptions): CosiatecResult
     //only add to results if the pattern includes points in no other pattern
     //always true in non-overlapping cosiatec
     if (previousLength > remainingPoints.length) {
-      !options.loggingOn || logPointsAndPatterns(remainingPoints, patterns);
+      if (options.loggingLevel > 1) logPointsAndPatterns(remainingPoints, patterns);
       result.patterns.push(bestPattern);
       result.scores.push(scores[iOfBestScore]);
     }

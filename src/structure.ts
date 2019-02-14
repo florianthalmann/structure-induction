@@ -28,7 +28,7 @@ export class StructureInducer {
     var quantizerFuncs = options ? options.quantizerFunctions : [];
     this.quantizer = new Quantizer(quantizerFuncs);
     this.quantizedPoints = this.quantizer.getQuantizedPoints(points);
-    if (options.loggingOn) {
+    if (options.loggingLevel > 1) {
       console.log("quantized points:", JSON.stringify(this.quantizedPoints));
     }
     this.pointStrings = this.quantizedPoints.map(v => JSON.stringify(v));
