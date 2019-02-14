@@ -50,7 +50,7 @@ function getSiatec(points: Point[], options: OpsiatecOptions): SiatecResult {
   return result;
 }
 
-function getCosiatecOptionsString(options: OpsiatecOptions) {
+export function getCosiatecOptionsString(options: OpsiatecOptions) {
   return getOptimOptionsString(options)
     +'_'+ (options.overlapping ? options.overlapping : false);
 }
