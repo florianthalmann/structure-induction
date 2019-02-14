@@ -14,26 +14,37 @@ export interface OpsiatecOptions extends CosiatecOptions {
 
 export function opsiatec(points: Point[], options: OpsiatecOptions): CosiatecResult {
   !options.loggingOn || console.log("SIATEC");
-  const siatecResult = getCachedOrRun<SiatecResult>(
+  let result = getCachedOrRun<SiatecResult>(
     'siatec.json',
     () => siatec(points), options);
   
-  !options.loggingOn || console.log("OPTIMIZING");
-  const optimized = getCachedOrRun<SiatecResult>(
-    'optimized_'+getOptionsString(options)+'.json',
-    () => getOptimizedPatterns(siatecResult, options), options);
+  if (needToOptimize(options)) {
+    !options.loggingOn || console.log("OPTIMIZING");
+    result = getCachedOrRun<SiatecResult>(
+      'optimized_'+getOptimOptionsString(options)+'.json',
+      () => getOptimizedPatterns(result, options), options);
+  }
   
   !options.loggingOn || console.log("COSIATEC");
-  options.siatecResult = optimized;
+  options.siatecResult = result;
   return getCachedOrRun<CosiatecResult>(
-    'cosiatec_'+getOptionsString(options)+'.json',
+    'cosiatec_'+getCosiatecOptionsString(options)+'.json',
     () => cosiatec(points, options), options);
 }
 
-function getOptionsString(options: OpsiatecOptions) {
+function getCosiatecOptionsString(options: OpsiatecOptions) {
+  return getOptimOptionsString(options)
+    +'_'+ (options.overlapping ? options.overlapping : false);
+}
+
+function getOptimOptionsString(options: OpsiatecOptions) {
   return options.optimizationMethods.map(m => m.toString()).join()
     +'_'+ (options.optimizationDimension != null ? options.optimizationDimension : '')
     +'_'+ (options.minPatternLength != null ? options.minPatternLength : '');
+}
+
+function needToOptimize(options: OpsiatecOptions) {
+  return options.optimizationMethods.length > 0 || options.minPatternLength > 1;
 }
 
 function getOptimizedPatterns(input: SiatecResult, options: OpsiatecOptions): SiatecResult {
