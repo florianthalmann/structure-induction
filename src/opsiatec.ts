@@ -45,7 +45,7 @@ function getSiatec(points: Point[], options: OpsiatecOptions): SiatecResult {
   const file = 'siatec.json';
   let result = <SiatecResult>loadCached(file, options);
   if (!result) {
-    performAndCache("SIATEC", () => siatec(points), file, options);
+    result = performAndCache("SIATEC", () => siatec(points), file, options);
   }
   return result;
 }

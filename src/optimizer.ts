@@ -1,6 +1,6 @@
 import * as _ from 'lodash';
 import { indexOfMax } from 'arrayutils';
-import { SiatecResult, SiatecPattern, Point, Pattern, Vector } from './siatec';
+import { SiatecResult, SiatecPattern, Point, Vector } from './siatec';
 import { CosiatecHeuristic } from './heuristics';
 
 export enum OPTIMIZATION {
