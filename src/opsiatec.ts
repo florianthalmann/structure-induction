@@ -1,3 +1,4 @@
+import * as _ from 'lodash';
 import * as fs from 'fs';
 import { siatec, SiatecResult, Point } from './siatec';
 import { cosiatec, CosiatecResult, CosiatecOptions } from './cosiatec';
@@ -56,7 +57,7 @@ export function getCosiatecOptionsString(options: OpsiatecOptions) {
 }
 
 function getOptimOptionsString(options: OpsiatecOptions) {
-  return options.optimizationMethods.map(m => m.toString()).join()
+  return _.sortBy(options.optimizationMethods).map(m => m.toString()).join('')
     +'_'+ (options.optimizationDimension != null ? options.optimizationDimension : '')
     +'_'+ (options.minPatternLength != null ? options.minPatternLength : '');
 }
