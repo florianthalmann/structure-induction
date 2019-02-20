@@ -34,8 +34,9 @@ function getOptimized(points: Point[], options: OpsiatecOptions): SiatecResult {
     let result = <SiatecResult>loadCached(file, options);
     if (!result) {
       const input = getSiatec(points, options);
-      result = performAndCache<SiatecResult>("    OPTIMIZING",
-        () => getOptimizedPatterns(input, options), file, options);
+      //result = performAndCache<SiatecResult>("    OPTIMIZING",
+        //() => getOptimizedPatterns(input, options), file, options);
+      result = getOptimizedPatterns(input, options);
     }
     return result;
   }
