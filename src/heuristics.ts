@@ -31,10 +31,23 @@ export module HEURISTICS {
 			/ getPointsInBoundingBox(pattern.points, allPoints).length;
 	}
 	
-	export const SIZE_AND_1D_COMPACTNESS = function(dimIndex: number): CosiatecHeuristic {
+	export const SIZE_AND_1D_COMPACTNESS = function(dimIndex: number, power = 1.8): CosiatecHeuristic {
 		return (pattern: SiatecPattern, allPoints: number[][]) =>
-			Math.pow(pattern.points.length, 1.8)
+			Math.pow(pattern.points.length, power)
 				/ getPointsInBoundingBox(pattern.points, allPoints, dimIndex).length;
+	}
+	
+	export const SIZE_1D_COMPACTNESS_AND_REGULARITY = function(dimIndex: number, power = 1.8) {
+		return (pattern: SiatecPattern, allPoints: number[][]) =>
+			Math.pow(pattern.points.length, power)
+				* getVectorsRegularity(pattern.vectors, dimIndex)
+				/ getPointsInBoundingBox(pattern.points, allPoints, dimIndex).length;
+	}
+	
+	function getVectorsRegularity(vectors: number[][], dimIndex: number) {
+		return _.reduce(vectors.map(v =>
+			(v[dimIndex] % 2 == 0 ? 2 : 1) * (v[dimIndex] % 4 == 0 ? 2 : 1)
+		), _.multiply);
 	}
 
 	export function getPointsInBoundingBox(pattern: number[][], allPoints: number[][], dimIndex?: number) {

@@ -10,7 +10,8 @@ export interface OpsiatecOptions extends CosiatecOptions {
   optimizationHeuristic?: CosiatecHeuristic,
   optimizationDimension?: number,
   minPatternLength?: number,
-  cacheDir?: string
+  cacheDir?: string,
+  siatecCacheDir?: string
 }
 
 export function opsiatec(points: Point[], options: OpsiatecOptions): CosiatecResult {
@@ -19,11 +20,11 @@ export function opsiatec(points: Point[], options: OpsiatecOptions): CosiatecRes
 
 function getCosiatec(points: Point[], options: OpsiatecOptions): CosiatecResult {
   const file = 'cosiatec_'+getCosiatecOptionsString(options)+'.json';
-  let result = <CosiatecResult>loadCached(file, options);
+  let result = <CosiatecResult>loadCached(file, options.cacheDir);
   if (!result) {
     options.siatecResult = getOptimized(points, options);
     result = performAndCache("    COSIATEC",
-      () => cosiatec(points, options), file, options);
+      () => cosiatec(points, options), file, options, options.cacheDir);
   }
   return result;
 }
@@ -31,7 +32,7 @@ function getCosiatec(points: Point[], options: OpsiatecOptions): CosiatecResult 
 function getOptimized(points: Point[], options: OpsiatecOptions): SiatecResult {
   if (needToOptimize(options)) {
     const file = 'optimized_'+getOptimOptionsString(options)+'.json';
-    let result = <SiatecResult>loadCached(file, options);
+    let result = <SiatecResult>loadCached(file, options.cacheDir);
     if (!result) {
       const input = getSiatec(points, options);
       //result = performAndCache<SiatecResult>("    OPTIMIZING",
@@ -45,9 +46,10 @@ function getOptimized(points: Point[], options: OpsiatecOptions): SiatecResult {
 
 function getSiatec(points: Point[], options: OpsiatecOptions): SiatecResult {
   const file = 'siatec.json';
-  let result = <SiatecResult>loadCached(file, options);
+  const dir = options.siatecCacheDir ? options.siatecCacheDir : options.cacheDir;
+  let result = <SiatecResult>loadCached(file, dir);
   if (!result) {
-    result = performAndCache("    SIATEC", () => siatec(points), file, options);
+    result = performAndCache("    SIATEC", () => siatec(points), file, options, dir);
   }
   return result;
 }
@@ -64,28 +66,29 @@ function getOptimOptionsString(options: OpsiatecOptions) {
 }
 
 function needToOptimize(options: OpsiatecOptions) {
-  return options.optimizationMethods.length > 0 || options.minPatternLength > 1;
+  return (options.optimizationMethods && options.optimizationMethods.length > 0)
+    || options.minPatternLength > 1;
 }
 
 function getOptimizedPatterns(input: SiatecResult, options: OpsiatecOptions): SiatecResult {
   //always filter for patterns of min length to optimize runtime
   let result = minLength(input, options.minPatternLength);
   
-  if (options.optimizationMethods.indexOf(OPTIMIZATION.PARTITION) >= 0) {
+  if (options.optimizationMethods && options.optimizationMethods.indexOf(OPTIMIZATION.PARTITION) >= 0) {
     //TODO PARTITION ONLY IF PATTERN LENGTH > MIN
     if (options.loggingLevel > 0) console.log("    PARTITIONING");
     result = partition(result, options.optimizationHeuristic, options.optimizationDimension);
     result = minLength(result, options.minPatternLength);
   }
   
-  if (options.optimizationMethods.indexOf(OPTIMIZATION.DIVIDE) >= 0) {
+  if (options.optimizationMethods && options.optimizationMethods.indexOf(OPTIMIZATION.DIVIDE) >= 0) {
     //TODO DIVIDE ONLY IF PATTERN LENGTH > MIN
     if (options.loggingLevel > 0) console.log("    DIVIDING");
     result = divide(result, options.optimizationHeuristic, options.optimizationDimension);
     result = minLength(result, options.minPatternLength);
   }
   
-  if (options.optimizationMethods.indexOf(OPTIMIZATION.MINIMIZE) >= 0) {
+  if (options.optimizationMethods && options.optimizationMethods.indexOf(OPTIMIZATION.MINIMIZE) >= 0) {
     //TODO MINIMIZE ONLY IF PATTERN LENGTH > MIN
     if (options.loggingLevel > 0) console.log("    MINIMIZING");
     result = minimize(result, options.optimizationHeuristic, options.optimizationDimension);
@@ -95,22 +98,22 @@ function getOptimizedPatterns(input: SiatecResult, options: OpsiatecOptions): Si
   return result;
 }
 
-function performAndCache<T>(taskname: string, func: () => T, filename: string, options: OpsiatecOptions) {
+function performAndCache<T>(taskname: string, func: () => T, filename: string, options: OpsiatecOptions, cacheDir: string) {
   if (options.loggingLevel > 0) console.log(taskname);
   const result = func();
-  saveCached(filename, result, options);
+  saveCached(filename, result, cacheDir);
   return result;
 }
 
-function loadCached<T>(file: string, options: OpsiatecOptions) {
-  if (options.cacheDir && fs.existsSync(options.cacheDir+file)) {
-    return <T>loadJson(options.cacheDir+file);
+function loadCached<T>(file: string, cacheDir: string) {
+  if (cacheDir && fs.existsSync(cacheDir+file)) {
+    return <T>loadJson(cacheDir+file);
   }
 }
 
-function saveCached(file: string, contents: {}, options: OpsiatecOptions) {
-  if (options.cacheDir) {
-    saveJson(options.cacheDir+file, contents);
+function saveCached(file: string, contents: {}, cacheDir: string) {
+  if (cacheDir) {
+    saveJson(cacheDir+file, contents);
   }
 }
 
