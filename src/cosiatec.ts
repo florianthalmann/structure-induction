@@ -6,7 +6,6 @@ import { HEURISTICS, CosiatecHeuristic } from './heuristics'
 export interface CosiatecOptions {
   overlapping?: boolean,
   selectionHeuristic?: CosiatecHeuristic,
-  siatecResult?: SiatecResult,
   loggingLevel?: number
 }
 
@@ -14,10 +13,10 @@ export interface CosiatecResult extends SiatecResult {
   scores: number[]
 }
 
-export function cosiatec(points: Point[], options: CosiatecOptions = {}): CosiatecResult {
+export function cosiatec(points: Point[], options: CosiatecOptions = {}, siatecResult?: SiatecResult): CosiatecResult {
   if (!options.selectionHeuristic) options.selectionHeuristic = HEURISTICS.COMPACTNESS;
   points = getSortedCloneWithoutDupes(points);
-  const result = cosiatecLoop(points, options);
+  const result = cosiatecLoop(points, options, siatecResult.patterns);
   if (options.loggingLevel > 1) logResult(result);
   return result;
 }
@@ -27,11 +26,10 @@ export function cosiatec(points: Point[], options: CosiatecOptions = {}): Cosiat
  * overlapping false: original cosiatec: performs sia iteratively on remaining points, returns the best patterns of each step
  * overlapping true: jamie's cosiatec: performs sia only once, returns the best patterns necessary to cover all points
  */
-function cosiatecLoop(points: Point[], options: CosiatecOptions): CosiatecResult {
+function cosiatecLoop(points: Point[], options: CosiatecOptions, patterns?: SiatecPattern[]): CosiatecResult {
   const result: CosiatecResult = {points: points, patterns: [], scores: []};
   let remainingPoints = points;
-  let patterns = options.siatecResult ? options.siatecResult.patterns
-    : siatec(remainingPoints).patterns;
+  patterns = patterns || siatec(remainingPoints).patterns;
   let scores = patterns.map(p => options.selectionHeuristic(p, remainingPoints));
   
   while (remainingPoints.length > 0 && patterns.length > 0) {

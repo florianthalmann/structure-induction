@@ -1,5 +1,6 @@
 import * as _ from 'lodash';
 import * as fs from 'fs';
+import { execSync } from 'child_process';
 import { siatec, SiatecResult, Point } from './siatec';
 import { cosiatec, CosiatecResult, CosiatecOptions } from './cosiatec';
 import { CosiatecHeuristic } from './heuristics';
@@ -22,9 +23,10 @@ function getCosiatec(points: Point[], options: OpsiatecOptions): CosiatecResult 
   const file = 'cosiatec_'+getCosiatecOptionsString(options)+'.json';
   let result = <CosiatecResult>loadCached(file, options.cacheDir);
   if (!result) {
-    options.siatecResult = getOptimized(points, options);
+    const optimized = getOptimized(points, options);
     result = performAndCache("    COSIATEC",
-      () => cosiatec(points, options), file, options, options.cacheDir);
+      () => cosiatec(points, options, optimized),
+      file, options, options.cacheDir);
   }
   return result;
 }
@@ -45,13 +47,18 @@ function getOptimized(points: Point[], options: OpsiatecOptions): SiatecResult {
 }
 
 function getSiatec(points: Point[], options: OpsiatecOptions): SiatecResult {
-  const file = 'siatec.json';
   const dir = options.siatecCacheDir ? options.siatecCacheDir : options.cacheDir;
-  let result = <SiatecResult>loadCached(file, dir);
+  let result = loadCachedSiatec(dir);
   if (!result) {
-    result = performAndCache("    SIATEC", () => siatec(points), file, options, dir);
+    result = performAndCacheSiatec(points, options, dir); //pySiatec(points, file);
   }
   return result;
+}
+
+function pySiatec(points, file) {
+  console.log("starting pysiatec", JSON.stringify(points), file)
+  console.log(execute("python src/siatec.py '"+JSON.stringify(points) + "' '" + file + "'"));
+  return loadJson(file);
 }
 
 export function getCosiatecOptionsString(options: OpsiatecOptions) {
@@ -98,6 +105,29 @@ function getOptimizedPatterns(input: SiatecResult, options: OpsiatecOptions): Si
   return result;
 }
 
+function loadCachedSiatec(cacheDir: string): SiatecResult {
+  //single file
+  if (fs.existsSync(cacheDir+'siatec.json')) {
+    return loadJson(cacheDir+'siatec.json');
+  } else if (fs.existsSync(cacheDir+'siatec-points.json')) {
+    return {
+      points: loadJson(cacheDir+'siatec-points.json'),
+      patterns: fs.readdirSync(cacheDir)
+                  .filter(f => f.indexOf('siatec-pattern') >= 0)
+                  .map(f => loadJson(cacheDir+f))
+    }
+  }
+}
+
+function performAndCacheSiatec(points: Point[], options: OpsiatecOptions, cacheDir: string) {
+  if (options.loggingLevel > 0) console.log('    SIATEC');
+  const result = siatec(points);
+  saveCached('siatec-points.json', result.points, cacheDir);
+  result.patterns.forEach((p,i) =>
+    saveCached('siatec-pattern'+i+'.json', p, cacheDir));
+  return result;
+}
+
 function performAndCache<T>(taskname: string, func: () => T, filename: string, options: OpsiatecOptions, cacheDir: string) {
   if (options.loggingLevel > 0) console.log(taskname);
   const result = func();
@@ -123,4 +153,9 @@ function loadJson(file: string) {
 
 function saveJson(path: string, json: {}) {
   fs.writeFileSync(path, JSON.stringify(json));
+}
+
+function execute(command: string) {
+  let options = {shell: '/bin/bash'}//{stdio: ['pipe', 'pipe', 'ignore']};
+  return execSync(command, options);
 }
