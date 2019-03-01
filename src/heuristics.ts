@@ -43,11 +43,24 @@ export module HEURISTICS {
 				* getVectorsRegularity(pattern.vectors, dimIndex)
 				/ getPointsInBoundingBox(pattern.points, allPoints, dimIndex).length;
 	}
+
+	export const SIZE_AND_1D_COMPACTNESS_AXIS = function(dimIndex: number, power = 1.8): CosiatecHeuristic {
+		return (pattern: SiatecPattern, allPoints: number[][]) =>
+			Math.pow(pattern.points.length, power)
+				/ getPointsInBoundingBox(pattern.points, allPoints, dimIndex).length
+				* getAxisParallelism(pattern.vectors, dimIndex);
+	}
 	
 	function getVectorsRegularity(vectors: number[][], dimIndex: number) {
 		return _.reduce(vectors.map(v =>
 			(v[dimIndex] % 2 == 0 ? 2 : 1) * (v[dimIndex] % 4 == 0 ? 2 : 1)
 		), _.multiply);
+	}
+	
+	// 1 if all vectors are on the axis of the given dimension
+	function getAxisParallelism(vectors: number[][], dimIndex: number) {
+		return _.reduce(vectors.map(v =>
+			v.every((d,i) => i == dimIndex || d == 0) ? 1 : 0), _.multiply);
 	}
 
 	export function getPointsInBoundingBox(pattern: number[][], allPoints: number[][], dimIndex?: number) {
