@@ -58,22 +58,34 @@ export module HEURISTICS {
 				* getAxisNonParallelism(pattern.vectors, dimIndex);
 	}
 	
-	function getVectorsRegularity(vectors: number[][], dimIndex: number) {
+	//avg regularity of dimIndex components of vectors with non-0 value at dimIndex
+	//0 = irregular, > 0 more regular
+	export function getVectorsRegularity(vectors: number[][], dimIndex: number) {
+		const nonZero = vectors.filter(v => v[dimIndex]);
+		if (nonZero.length > 0) {
+			return _.sum(nonZero.map(v =>
+				//% 4 => 2, %2 => 1, none => 0
+				(v[dimIndex] % 2 == 0 ? 1 : 0) * (v[dimIndex] % 4 == 0 ? 2 : 1)
+			))/nonZero.length;
+		}
+		return 0;
+	}
+	
+	function getVectorsRegularityDefectiveButGoodForJohan(vectors: number[][], dimIndex: number) {
 		return _.reduce(vectors.map(v =>
-			(v[dimIndex] % 2 == 0 ? 2 : 1) * (v[dimIndex] % 4 == 0 ? 2 : 1)
-		), _.multiply);
+				(v[dimIndex] % 2 == 0 ? 2 : 1) * (v[dimIndex] % 4 == 0 ? 2 : 1)
+			), _.multiply);
 	}
 	
 	//1 if all vectors are parallel to the axis of the given dimension, 0 otherwise
-	function getAxisParallelism(vectors: number[][], dimIndex: number) {
+	export function getAxisParallelism(vectors: number[][], dimIndex: number) {
 		return _.reduce(vectors.map(v =>
 			v.every((d,i) => i == dimIndex || d == 0) ? 1 : 0), _.multiply);
 	}
 	
-	//1 if all vectors are parallel to the axis of the given dimension, 0 otherwise
-	function getAxisNonParallelism(vectors: number[][], dimIndex: number) {
-		return _.reduce(vectors.map(v =>
-			v.every((d,i) => i == dimIndex || d == 0) ? 0 : 1), _.multiply);
+	//1 if not all vectors are parallel to the axis of the given dimension, 0 otherwise
+	export function getAxisNonParallelism(vectors: number[][], dimIndex: number) {
+		return 1 - getAxisParallelism(vectors, dimIndex);
 	}
 
 	export function getPointsInBoundingBox(pattern: number[][], allPoints: number[][], dimIndex?: number) {

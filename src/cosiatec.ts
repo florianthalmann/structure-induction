@@ -16,7 +16,7 @@ export interface CosiatecResult extends SiatecResult {
 export function cosiatec(points: Point[], options: CosiatecOptions = {}, siatecResult?: SiatecResult): CosiatecResult {
   if (!options.selectionHeuristic) options.selectionHeuristic = HEURISTICS.COMPACTNESS;
   points = getSortedCloneWithoutDupes(points);
-  const result = cosiatecLoop(points, options, siatecResult.patterns);
+  const result = cosiatecLoop(points, options, siatecResult ? siatecResult.patterns : null);
   if (options.loggingLevel > 1) logResult(result);
   return result;
 }

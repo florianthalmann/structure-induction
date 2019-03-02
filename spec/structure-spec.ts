@@ -1,11 +1,10 @@
-var _ = require('lodash');
-var StructureInducer = require('../lib/structure').StructureInducer;
-var siatec = require('../lib/siatec').siatec;
-var cosiatec = require('../lib/cosiatec').cosiatec;
-var optimizer = require('../lib/optimizer');
-var Quantizer = require('../lib/quantizer').Quantizer;
-var QUANT_FUNCS = require('../lib/quantizer').QUANT_FUNCS;
-var HEURISTICS = require('../lib/heuristics').HEURISTICS;
+import * as _ from 'lodash';
+import { siatec } from '../src/siatec';
+import { cosiatec } from '../src/cosiatec';
+import { Quantizer } from '../src/quantizer';
+import { QUANT_FUNCS } from '../src/quantizer';
+import { HEURISTICS } from '../src/heuristics';
+import * as optimizer from '../src/optimizer';
 
 describe("a structure induction algorithm", function() {
 
@@ -37,8 +36,7 @@ describe("a structure induction algorithm", function() {
 		//console.log(JSON.stringify(occurrences))
 
 		var original = result.patterns[5];
-		var minimized = optimizer.minimize(result, HEURISTICS.COMPACTNESS, 0);
-		minimized = minimized.patterns[5];
+		var minimized = optimizer.minimize(result, HEURISTICS.COMPACTNESS, 0).patterns[5];
 		//console.log(JSON.stringify(minimized));
 		expect(original.points.length).toBe(4);
 		expect(minimized.points.length).toBe(2);
@@ -98,6 +96,16 @@ describe("a structure induction algorithm", function() {
 		var size1DComp = result.patterns.map(p => HEURISTICS.SIZE_AND_1D_COMPACTNESS(0)(p, points));
 		expect(size1DComp).toEqual([ 1.1607340843948322, 0.6964404506368993, 0.6964404506368993, 0.5, 1.4449348111684153, 1.7322475045833123, 0.5, 0.5, 0.3333333333333333, 0.6964404506368993, 0.8705505632961241, 0.5, 0.3333333333333333, 0.6964404506368993, 0.3333333333333333, 0.5, 0.5 ]);
 		
+		var vecs = result.patterns.map(p => p.vectors)
+		var regs = vecs.map(v => HEURISTICS.getVectorsRegularity(v, 0));
+		expect(regs).toEqual([0,0,0,0.5,0,0,0.5,0.5,0.2,0.3333333333333333,0.3333333333333333,0.5,0.2,0.3333333333333333,0.2,0.5,0.5])
+		
+		var para = vecs.map(v => HEURISTICS.getAxisParallelism(v, 0));
+		expect(para).toEqual([0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0]);
+		
+		var anti = vecs.map(v => HEURISTICS.getAxisNonParallelism(v, 0));
+		expect(anti).toEqual([1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1]);
+		
 		//test bounding box
 		//const points = HEURISTICS.getPointsInBoundingBox()
 		
@@ -109,8 +117,8 @@ describe("a structure induction algorithm", function() {
 		expect(JSON.stringify(result)).toBe("[[0,2,2.34,0],[0,1,5.66,1]]");
 
 		var quantizer = new Quantizer([QUANT_FUNCS.CLUSTER(2)]);
-		result = JSON.stringify(quantizer.getQuantizedPoints([[[0,2,3]],[[1,1,2]],[[7,9,2]],[[0,3,1]]]));
-		expect(result === "[[0],[0],[1],[0]]" || result === "[[1],[1],[0],[1]]").toBe(true);
+		var result2 = JSON.stringify(quantizer.getQuantizedPoints([[[0,2,3]],[[1,1,2]],[[7,9,2]],[[0,3,1]]]));
+		expect(result2 === "[[0],[0],[1],[0]]" || result2 === "[[1],[1],[0],[1]]").toBe(true);
 	});
 
 });

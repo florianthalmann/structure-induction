@@ -9,7 +9,7 @@
     "spec/"
   ],
   "scripts": {
-    "test": "tsc && jasmine",
+    "test": "ts-node node_modules/jasmine/bin/jasmine",
     "build": "tsc",
     "prepare": "npm run build"
   },
@@ -20,9 +20,11 @@
     "mathjs": "^3.10.0"
   },
   "devDependencies": {
+    "@types/jasmine": "^3.3.9",
     "@types/lodash": "^4.14.119",
     "@types/node": "^11.9.0",
     "jasmine": "^3.3.1",
+    "ts-node": "^7.0.1",
     "typescript": "^2.9.2"
   },
   "repository": {

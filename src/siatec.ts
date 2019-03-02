@@ -1,6 +1,5 @@
 import * as _ from 'lodash';
 import { intersectSortedArrays, mergeSortedArrays } from 'arrayutils';
-const sizeof = require('object-sizeof');
 
 export type Point = number[];
 export type Pattern = Point[];
