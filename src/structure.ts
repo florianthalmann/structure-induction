@@ -2,8 +2,7 @@ import * as _ from 'lodash'
 import * as math from 'mathjs'
 import { indexOfMax } from 'arrayutils';
 import { Quantizer, ArrayMap } from './quantizer'
-import { cosiatec } from './cosiatec'
-import { opsiatec, OpsiatecOptions } from './opsiatec'
+import { opsiatec, OpsiatecOptions, getCachedSiatecPatternCount } from './opsiatec'
 import { SmithWaterman, SmithWatermanResult, TRACES } from './smith-waterman'
 
 export interface IterativeSmithWatermanResult {
@@ -40,6 +39,10 @@ export class StructureInducer {
     const patterns = this.pointsToIndices(this.getCosiatecOccurrences(patternIndices));
     patterns.forEach(p => p.map(o => o.sort((a,b) => a-b)));
     return patterns;
+  }
+  
+  getCachedSiatecPatternCount(): number {
+    return getCachedSiatecPatternCount(this.options);
   }
 
   //returns occurrences of patterns in the original point sequence

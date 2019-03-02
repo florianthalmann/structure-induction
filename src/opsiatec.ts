@@ -46,13 +46,22 @@ function getOptimized(points: Point[], options: OpsiatecOptions): SiatecResult {
   return getSiatec(points, options);
 }
 
-function getSiatec(points: Point[], options: OpsiatecOptions): SiatecResult {
+export function getSiatec(points: Point[], options: OpsiatecOptions): SiatecResult {
   const dir = options.siatecCacheDir ? options.siatecCacheDir : options.cacheDir;
   let result = loadCachedSiatec(dir);
   if (!result) {
     result = performAndCacheSiatec(points, options, dir); //pySiatec(points, file);
   }
   return result;
+}
+
+export function getCachedSiatecPatternCount(options: OpsiatecOptions): number {
+  const dir = options.siatecCacheDir ? options.siatecCacheDir : options.cacheDir;
+  if (fs.existsSync(dir+'siatec-points.json')) {
+    return fs.readdirSync(dir)
+      .filter(f => f.indexOf('siatec-pattern') >= 0).length;
+  }
+  return loadCachedSiatec(dir).patterns.length;
 }
 
 function pySiatec(points, file) {

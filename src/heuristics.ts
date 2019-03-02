@@ -51,16 +51,29 @@ export module HEURISTICS {
 				* getAxisParallelism(pattern.vectors, dimIndex);
 	}
 	
+	export const SIZE_AND_1D_COMPACTNESS_NOAXIS = function(dimIndex: number, power = 1.8): CosiatecHeuristic {
+		return (pattern: SiatecPattern, allPoints: number[][]) =>
+			Math.pow(pattern.points.length, power)
+				/ getPointsInBoundingBox(pattern.points, allPoints, dimIndex).length
+				* getAxisNonParallelism(pattern.vectors, dimIndex);
+	}
+	
 	function getVectorsRegularity(vectors: number[][], dimIndex: number) {
 		return _.reduce(vectors.map(v =>
 			(v[dimIndex] % 2 == 0 ? 2 : 1) * (v[dimIndex] % 4 == 0 ? 2 : 1)
 		), _.multiply);
 	}
 	
-	// 1 if all vectors are on the axis of the given dimension
+	//1 if all vectors are parallel to the axis of the given dimension, 0 otherwise
 	function getAxisParallelism(vectors: number[][], dimIndex: number) {
 		return _.reduce(vectors.map(v =>
 			v.every((d,i) => i == dimIndex || d == 0) ? 1 : 0), _.multiply);
+	}
+	
+	//1 if all vectors are parallel to the axis of the given dimension, 0 otherwise
+	function getAxisNonParallelism(vectors: number[][], dimIndex: number) {
+		return _.reduce(vectors.map(v =>
+			v.every((d,i) => i == dimIndex || d == 0) ? 0 : 1), _.multiply);
 	}
 
 	export function getPointsInBoundingBox(pattern: number[][], allPoints: number[][], dimIndex?: number) {
