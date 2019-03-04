@@ -5,6 +5,7 @@ import { Quantizer } from '../src/quantizer';
 import { QUANT_FUNCS } from '../src/quantizer';
 import { HEURISTICS } from '../src/heuristics';
 import * as optimizer from '../src/optimizer';
+import * as graphs from '../src/graphs';
 
 describe("a structure induction algorithm", function() {
 
@@ -119,6 +120,11 @@ describe("a structure induction algorithm", function() {
 		var quantizer = new Quantizer([QUANT_FUNCS.CLUSTER(2)]);
 		var result2 = JSON.stringify(quantizer.getQuantizedPoints([[[0,2,3]],[[1,1,2]],[[7,9,2]],[[0,3,1]]]));
 		expect(result2 === "[[0],[0],[1],[0]]" || result2 === "[[1],[1],[0],[1]]").toBe(true);
+	});
+	
+	it("can do graph theory", () => {
+		var result = siatec(points);
+		console.log(graphs.getConnectednessRatings(result))
 	});
 
 });

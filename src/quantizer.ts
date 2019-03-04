@@ -129,10 +129,6 @@ export class Quantizer {
 		return points.map(p => _.flatten(p));
 	}
 
-	roundPoint(point, precision) {
-		return point.map(x => _.round(x, precision));
-	}
-
 	/**
 	 * TODO WHERE TO PUT?
 	 * returns a map with a normalized vector for each given dymo. if reduce is true, multidimensional ones are reduced

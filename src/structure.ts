@@ -4,6 +4,7 @@ import { indexOfMax } from 'arrayutils';
 import { Quantizer, ArrayMap } from './quantizer'
 import { opsiatec, OpsiatecOptions, getCachedSiatecPatternCount } from './opsiatec'
 import { SmithWaterman, SmithWatermanResult, TRACES } from './smith-waterman'
+import { pointsToIndices } from './util';
 
 export interface IterativeSmithWatermanResult {
   segments: number[][][],
@@ -21,7 +22,6 @@ export class StructureInducer {
 
   private quantizer: Quantizer;
   private quantizedPoints: number[][];
-  private pointStrings: string[];
 
   constructor(points: number[][], private options: StructureOptions) {
     var quantizerFuncs = options ? options.quantizerFunctions : [];
@@ -30,15 +30,15 @@ export class StructureInducer {
     if (options.loggingLevel > 1) {
       console.log("quantized points:", JSON.stringify(this.quantizedPoints));
     }
-    this.pointStrings = this.quantizedPoints.map(v => JSON.stringify(v));
   }
 
   //returns patterns of indices in the original point sequence
   getCosiatecPatterns(patternIndices?: number[]): number[][][] {
     //get the indices of the points involved
-    const patterns = this.pointsToIndices(this.getCosiatecOccurrences(patternIndices));
-    patterns.forEach(p => p.map(o => o.sort((a,b) => a-b)));
-    return patterns;
+    const patterns = this.getCosiatecOccurrences(patternIndices);
+    const indexPatterns = pointsToIndices(patterns, this.quantizedPoints);
+    indexPatterns.forEach(p => p.map(o => o.sort((a,b) => a-b)));
+    return indexPatterns;
   }
   
   getCachedSiatecPatternCount(): number {
@@ -240,9 +240,9 @@ export class StructureInducer {
     let avgTsls = vectors.map(vs => math.mean(vs.map(v => Math.sqrt(math.sum(v.map(p => Math.pow(p,2)))))));
     [avgTsls, occurrences] = this.sortArraysByFirst(true, avgTsls, occurrences);
     //map onto point indices
-    let occurrenceIndices = this.pointsToIndices(occurrences);
+    let occurrenceIndices = pointsToIndices(occurrences, this.quantizedPoints);
     //start with list of indices
-    let structure = this.pointStrings.map((p,i) => i);
+    let structure = _.range(0, this.quantizedPoints.length);
     let paths = _.clone(structure).map(i => [i]);
     //[[0,1],[2,3,4],5,[6,[7,8]]]
     occurrenceIndices.forEach((occs,i) => {
@@ -323,15 +323,6 @@ export class StructureInducer {
 
   private getPatternSpan(pattern: number[][]): number {
     return <number> math.norm(math.subtract(pattern[pattern.length-1], pattern[0]));
-  }
-
-  private pointsToIndices(occurrences: number[][][][]): number[][][] {
-    return occurrences.map(occ => occ.map(pat => pat.map(p => this.getPointIndex(p))));
-  }
-
-  private getPointIndex(point: number[]): number {
-    //quantize again to get rid of float errors!
-    return this.pointStrings.indexOf(JSON.stringify(this.quantizer.roundPoint(point, 8)));
   }
 
 }
