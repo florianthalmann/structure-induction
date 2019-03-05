@@ -55,15 +55,6 @@ export function getSiatec(points: Point[], options: OpsiatecOptions): SiatecResu
   return result;
 }
 
-export function getCachedSiatecPatternCount(options: OpsiatecOptions): number {
-  const dir = options.siatecCacheDir ? options.siatecCacheDir : options.cacheDir;
-  if (fs.existsSync(dir+'siatec-points.json')) {
-    return fs.readdirSync(dir)
-      .filter(f => f.indexOf('siatec-pattern') >= 0).length;
-  }
-  return loadCachedSiatec(dir).patterns.length;
-}
-
 function pySiatec(points, file) {
   console.log("starting pysiatec", JSON.stringify(points), file)
   console.log(execute("python src/siatec.py '"+JSON.stringify(points) + "' '" + file + "'"));
@@ -118,13 +109,6 @@ function loadCachedSiatec(cacheDir: string): SiatecResult {
   //single file
   if (fs.existsSync(cacheDir+'siatec.json')) {
     return loadJson(cacheDir+'siatec.json');
-  } else if (fs.existsSync(cacheDir+'siatec-points.json')) {
-    return {
-      points: loadJson(cacheDir+'siatec-points.json'),
-      patterns: fs.readdirSync(cacheDir)
-                  .filter(f => f.indexOf('siatec-pattern') >= 0)
-                  .map(f => loadJson(cacheDir+f))
-    }
   }
 }
 
@@ -132,9 +116,6 @@ function performAndCacheSiatec(points: Point[], options: OpsiatecOptions, cacheD
   if (options.loggingLevel > 0) console.log('    SIATEC');
   const result = siatec(points, options.minPatternLength);
   saveCached('siatec.json', result, cacheDir);
-  /*saveCached('siatec-points.json', result.points, cacheDir);
-  result.patterns.forEach((p,i) =>
-    saveCached('siatec-pattern'+i+'.json', p, cacheDir));*/
   return result;
 }
 

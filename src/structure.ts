@@ -2,7 +2,7 @@ import * as _ from 'lodash'
 import * as math from 'mathjs'
 import { indexOfMax } from 'arrayutils';
 import { Quantizer, ArrayMap } from './quantizer'
-import { opsiatec, OpsiatecOptions, getCachedSiatecPatternCount } from './opsiatec'
+import { opsiatec, OpsiatecOptions } from './opsiatec'
 import { SmithWaterman, SmithWatermanResult, TRACES } from './smith-waterman'
 import { pointsToIndices } from './util';
 
@@ -10,6 +10,11 @@ export interface IterativeSmithWatermanResult {
   segments: number[][][],
   matrices: SmithWatermanResult[],
   segmentMatrix: number[][],
+}
+
+export interface OpsiatecResult {
+  cosiatecOccurrences: number[][][],
+  numSiatecPatterns: number 
 }
 
 export interface StructureOptions extends OpsiatecOptions {
@@ -33,20 +38,19 @@ export class StructureInducer {
   }
 
   //returns patterns of indices in the original point sequence
-  getCosiatecPatterns(patternIndices?: number[]): number[][][] {
+  getCosiatecIndexOccurrences(patternIndices?: number[]): OpsiatecResult {
     //get the indices of the points involved
-    const patterns = this.getCosiatecOccurrences(patternIndices);
-    const indexPatterns = pointsToIndices(patterns, this.quantizedPoints);
-    indexPatterns.forEach(p => p.map(o => o.sort((a,b) => a-b)));
-    return indexPatterns;
-  }
-  
-  getCachedSiatecPatternCount(): number {
-    return getCachedSiatecPatternCount(this.options);
+    const occurrences = this.getCosiatecOccurrences(patternIndices);
+    const indexOccs = pointsToIndices(occurrences[0], this.quantizedPoints);
+    indexOccs.forEach(p => p.map(o => o.sort((a,b) => a-b)));
+    return {
+      cosiatecOccurrences: indexOccs,
+      numSiatecPatterns: occurrences[1]
+    }
   }
 
   //returns occurrences of patterns in the original point sequence
-  getCosiatecOccurrences(patternIndices?: number[]): number[][][][] {
+  getCosiatecOccurrences(patternIndices?: number[]): [number[][][][], number] {
     const result =  opsiatec(this.quantizedPoints, this.options);
     let occurrences =  result.patterns.map(p => p.occurrences);
     if (this.options.minHeuristicValue) {
@@ -56,7 +60,7 @@ export class StructureInducer {
     if (this.options.numPatterns) {
       occurrences = occurrences.slice(0, this.options.numPatterns);
     }
-    return occurrences;
+    return [occurrences, result.numSiatecPatterns];
   }
 
   getSmithWaterman() {

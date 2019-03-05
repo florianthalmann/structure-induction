@@ -11,7 +11,8 @@ export interface CosiatecOptions {
 }
 
 export interface CosiatecResult extends SiatecResult {
-  scores: number[]
+  scores: number[],
+  numSiatecPatterns?: number
 }
 
 export function cosiatec(points: Point[], options: CosiatecOptions = {}, siatecResult?: SiatecResult): CosiatecResult {
@@ -32,6 +33,7 @@ function cosiatecLoop(points: Point[], options: CosiatecOptions, patterns?: Siat
   let remainingPoints = points;
   //IN NON-OVERLAPPING THERE IS NO OPTIMIZATION SO FAR!!!!
   patterns = patterns || siatec(remainingPoints, options.minPatternLength).patterns;
+  result.numSiatecPatterns = patterns.length;
   let scores = patterns.map(p => options.selectionHeuristic(p, remainingPoints));
   
   while (remainingPoints.length > 0 && patterns.length > 0) {
