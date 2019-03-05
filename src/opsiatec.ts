@@ -130,10 +130,11 @@ function loadCachedSiatec(cacheDir: string): SiatecResult {
 
 function performAndCacheSiatec(points: Point[], options: OpsiatecOptions, cacheDir: string) {
   if (options.loggingLevel > 0) console.log('    SIATEC');
-  const result = siatec(points);
-  saveCached('siatec-points.json', result.points, cacheDir);
+  const result = siatec(points, options.minPatternLength);
+  saveCached('siatec.json', result, cacheDir);
+  /*saveCached('siatec-points.json', result.points, cacheDir);
   result.patterns.forEach((p,i) =>
-    saveCached('siatec-pattern'+i+'.json', p, cacheDir));
+    saveCached('siatec-pattern'+i+'.json', p, cacheDir));*/
   return result;
 }
 

@@ -17,26 +17,19 @@ export interface SiatecResult {
   patterns: SiatecPattern[]
 }
 
-export function siatec(points: number[][], outFile?: string): SiatecResult {
+export function siatec(points: number[][], minPatternLength = 0): SiatecResult {
   console.log("TABLE")
   let vectorTable = getVectorTable(points);
-  const patterns = calculateSiaPatterns(vectorTable);
+  let patterns = calculateSiaPatterns(vectorTable);
+  const lengthOfAll = patterns.length;
+  patterns = patterns.filter(p => p.length >= minPatternLength);
+  console.log("PATTERNS KEPT:", patterns.length, "OF", lengthOfAll)
   console.log("VECS")
   const vectors = calculateSiatecOccurrences(points, patterns, vectorTable)
     .map(i => i.map(v => v.map(e => _.round(e,8)))); //eliminate float errors
   vectorTable = null;
+  
   console.log("OCCS")
-  /*const occurrences = vectors.map((occ, i) => occ.map(tsl =>
-    patterns[i].map(pat => pat.map((p,k) => p + tsl[k]))));*/
-  
-  /*function getOcc(pattern: Pattern, vector: Vector) {
-    return pattern.map(point => point.map((p,k) => p + vector[k]));
-  }
-  
-  function getOccs(pattern: Pattern, vectors: Vector[]) {
-    return vectors.map(v => getOcc(pattern, v));
-  }*/
-  
   function toOccs(patterns: Pattern[], vectors: Vector[][]) {
     const occurrences = vectors.map((v,i) =>
       v.map(w => patterns[i].map(point => point.map((p,k) => p + w[k]))));
@@ -47,7 +40,6 @@ export function siatec(points: number[][], outFile?: string): SiatecResult {
   
   let occurrences = [];
   for (let i = 0; i < vectors.length; i+=1000) {
-    //console.log(Math.round(process.memoryUsage().heapUsed/1024/1024*100)/100, 'MB')
     occurrences.push(toOccs(patterns.slice(i, i+1000), vectors.slice(i, i+1000)));
   }
   

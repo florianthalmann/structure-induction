@@ -6,7 +6,8 @@ import { HEURISTICS, CosiatecHeuristic } from './heuristics'
 export interface CosiatecOptions {
   overlapping?: boolean,
   selectionHeuristic?: CosiatecHeuristic,
-  loggingLevel?: number
+  loggingLevel?: number,
+  minPatternLength?: number
 }
 
 export interface CosiatecResult extends SiatecResult {
@@ -29,7 +30,8 @@ export function cosiatec(points: Point[], options: CosiatecOptions = {}, siatecR
 function cosiatecLoop(points: Point[], options: CosiatecOptions, patterns?: SiatecPattern[]): CosiatecResult {
   const result: CosiatecResult = {points: points, patterns: [], scores: []};
   let remainingPoints = points;
-  patterns = patterns || siatec(remainingPoints).patterns;
+  //IN NON-OVERLAPPING THERE IS NO OPTIMIZATION SO FAR!!!!
+  patterns = patterns || siatec(remainingPoints, options.minPatternLength).patterns;
   let scores = patterns.map(p => options.selectionHeuristic(p, remainingPoints));
   
   while (remainingPoints.length > 0 && patterns.length > 0) {
@@ -51,7 +53,7 @@ function cosiatecLoop(points: Point[], options: CosiatecOptions, patterns?: Siat
       [patterns, scores].forEach(a => a.splice(iOfBestScore, 1));
     } else {
       //recalculate siatec and heuristics on remaining points
-      patterns = siatec(remainingPoints).patterns;
+      patterns = siatec(remainingPoints, options.minPatternLength).patterns;
       scores = patterns.map(p => options.selectionHeuristic(p, remainingPoints));
     }
   }
