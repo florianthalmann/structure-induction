@@ -115,24 +115,18 @@ function getOptimizedPatterns(input: SiatecResult, options: OpsiatecOptions): Si
   let result = minLength(input, options.minPatternLength);
   
   if (options.optimizationMethods && options.optimizationMethods.indexOf(OPTIMIZATION.PARTITION) >= 0) {
-    //TODO PARTITION ONLY IF PATTERN LENGTH > MIN
     if (options.loggingLevel > 0) console.log("    PARTITIONING");
-    result = partition(result, options.optimizationHeuristic, options.optimizationDimension);
-    result = minLength(result, options.minPatternLength);
+    result = partition(result, options.optimizationHeuristic, options.optimizationDimension, options.minPatternLength);
   }
   
   if (options.optimizationMethods && options.optimizationMethods.indexOf(OPTIMIZATION.DIVIDE) >= 0) {
-    //TODO DIVIDE ONLY IF PATTERN LENGTH > MIN
     if (options.loggingLevel > 0) console.log("    DIVIDING");
-    result = divide(result, options.optimizationHeuristic, options.optimizationDimension);
-    result = minLength(result, options.minPatternLength);
+    result = divide(result, options.optimizationHeuristic, options.optimizationDimension, options.minPatternLength);
   }
   
   if (options.optimizationMethods && options.optimizationMethods.indexOf(OPTIMIZATION.MINIMIZE) >= 0) {
-    //TODO MINIMIZE ONLY IF PATTERN LENGTH > MIN
     if (options.loggingLevel > 0) console.log("    MINIMIZING");
-    result = minimize(result, options.optimizationHeuristic, options.optimizationDimension);
-    result = minLength(result, options.minPatternLength);
+    result = minimize(result, options.optimizationHeuristic, options.optimizationDimension, options.minPatternLength);
   }
   
   return result;

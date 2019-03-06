@@ -17,64 +17,74 @@ export function minLength(input: SiatecResult, minLength: number): SiatecResult 
   }
 }
 
-export function minimize(input: SiatecResult, heuristic: CosiatecHeuristic, dimension: number): SiatecResult {
+export function minimize(input: SiatecResult, heuristic: CosiatecHeuristic, dimension: number, minLength?: number): SiatecResult {
   const patterns = input.patterns.map(p =>
-    minimizePattern(p, input.points, dimension, heuristic));
-  return { points: input.points, patterns: patterns, minPatternLength: input.minPatternLength };
+    minimizePattern(p, input.points, dimension, heuristic, minLength));
+  return { points: input.points, patterns: patterns, minPatternLength: minLength };
 }
 
-export function divide(input: SiatecResult, heuristic: CosiatecHeuristic, dimension: number): SiatecResult {
+export function divide(input: SiatecResult, heuristic: CosiatecHeuristic, dimension: number, minLength?: number): SiatecResult {
   const patterns = _.flatten<SiatecPattern>(input.patterns.map(p =>
-    dividePattern(p, input.points, dimension, heuristic)));
-  return { points: input.points, patterns: patterns, minPatternLength: input.minPatternLength };
+    dividePattern(p, input.points, dimension, heuristic, minLength)));
+  return { points: input.points, patterns: patterns, minPatternLength: minLength };
 }
 
-export function partition(input: SiatecResult, heuristic: CosiatecHeuristic, dimension: number): SiatecResult {
+export function partition(input: SiatecResult, heuristic: CosiatecHeuristic, dimension: number, minLength?: number): SiatecResult {
   const patterns = _.flatten<SiatecPattern>(input.patterns.map(p =>
-    partitionPattern(p, input.points, dimension, heuristic)));
-  return { points: input.points, patterns: patterns, minPatternLength: input.minPatternLength };
+    partitionPattern(p, input.points, dimension, heuristic, minLength)));
+  return { points: input.points, patterns: patterns, minPatternLength: minLength };
 }
 
-function minimizePattern(pattern: SiatecPattern, allPoints: Point[], dimension: number, heuristic: CosiatecHeuristic): SiatecPattern {
-  const points = cloneAndSortPoints(pattern, dimension);
-  if (points.length > 1) {
-    //all possible connected subpatterns
-    const subPatterns = _.flatten<SiatecPattern>(points.map((_,i) =>
-      points.map((_,j) => newPattern(points.slice(i, points.length-j), pattern.vectors))));
-    const heuristics = subPatterns.map(p => heuristic(p, allPoints));
-    return subPatterns[indexOfMax(heuristics)];
+function minimizePattern(pattern: SiatecPattern, allPoints: Point[], dimension: number, heuristic: CosiatecHeuristic, minLength = 1): SiatecPattern {
+  if (pattern.points.length > minLength) {
+    const points = cloneAndSortPoints(pattern, dimension);
+    if (points.length > minLength) {
+      //all possible connected subpatterns
+      const subPatterns = _.flatten<SiatecPattern>(points.map((_,i) =>
+        points.slice(i).map((_,j) => points.length-j - i >= minLength ? //check min length
+            newPattern(points.slice(i, points.length-j), pattern.vectors) : null
+        )))
+        //filter for defined ones
+        .filter(p => p);
+      const heuristics = subPatterns.map(p => heuristic(p, allPoints));
+      return subPatterns[indexOfMax(heuristics)];
+    }
   }
   return pattern;
 }
 
-export function dividePattern(pattern: SiatecPattern, allPoints: Point[], dimension: number, heuristic: CosiatecHeuristic): SiatecPattern[] {
+export function dividePattern(pattern: SiatecPattern, allPoints: Point[], dimension: number, heuristic: CosiatecHeuristic, minLength = 1): SiatecPattern[] {
   const cloned = newPattern(cloneAndSortPoints(pattern, dimension), pattern.vectors);
-  return recursiveDividePattern(cloned, allPoints, dimension, heuristic);
+  return recursiveDividePattern(cloned, allPoints, dimension, heuristic, minLength);
 } 
 
-function recursiveDividePattern(pattern: SiatecPattern, allPoints: Point[], dimension: number, heuristic: CosiatecHeuristic): SiatecPattern[] {
+function recursiveDividePattern(pattern: SiatecPattern, allPoints: Point[], dimension: number, heuristic: CosiatecHeuristic, minLength: number): SiatecPattern[] {
   const currentHeuristicValue = heuristic(pattern, allPoints);
-  if (pattern.points.length > 1) {
+  if (pattern.points.length > minLength) {
     const patternPairs = pattern.points.map((_,i) =>
-      [pattern.points.slice(0,i), pattern.points.slice(i)]);
-    const heuristics = patternPairs.map(ps => ps.map(p =>
-      heuristic(newPattern(p, pattern.vectors), allPoints)));
-    const maxes = heuristics.map(_.max);
-    const index: number = indexOfMax(maxes);
-    if (maxes[index] > currentHeuristicValue) {
-      const left = newPattern(pattern.points.slice(0, index), pattern.vectors);
-      const right = newPattern(pattern.points.slice(index), pattern.vectors);
-      return recursiveDividePattern(left, allPoints, dimension, heuristic)
-        .concat(recursiveDividePattern(right, allPoints, dimension, heuristic));
+      //check if both segments at least minLength
+      pattern.points.length - i >= minLength && i >= minLength ?
+      [newPattern(pattern.points.slice(0,i), pattern.vectors),
+        newPattern(pattern.points.slice(i), pattern.vectors)] : null)
+      //filter for defined ones
+      .filter(p => p);
+    if (patternPairs.length > 0) {
+      const heuristics = patternPairs.map(ps => ps.map(p => heuristic(p, allPoints)));
+      const maxes = heuristics.map(_.max);
+      const index: number = indexOfMax(maxes);
+      if (maxes[index] > currentHeuristicValue) {
+        return recursiveDividePattern(patternPairs[index][0], allPoints, dimension, heuristic, minLength)
+          .concat(recursiveDividePattern(patternPairs[index][1], allPoints, dimension, heuristic, minLength));
+      }
     }
   }
   return [pattern];
 }
 
 /** partitions the given pattern along the given dimension */
-export function partitionPattern(pattern: SiatecPattern, allPoints: Point[], dimension: number, heuristic: CosiatecHeuristic): SiatecPattern[] {
+export function partitionPattern(pattern: SiatecPattern, allPoints: Point[], dimension: number, heuristic: CosiatecHeuristic, minLength = 1): SiatecPattern[] {
   const points = cloneAndSortPoints(pattern, dimension);
-  if (pattern.vectors.length > 1 && points.length > 1) {
+  if (pattern.vectors.length > 1 && points.length > minLength) {
     const vals = pattern.vectors.map(v => v[dimension]);
     const dists = _.flatten(vals.map((v,i) =>
       vals.filter((_,j) => j>i).map(w => Math.abs(v-w))));
@@ -82,7 +92,7 @@ export function partitionPattern(pattern: SiatecPattern, allPoints: Point[], dim
     const min = points[0][dimension];
     const max = _.last(points)[dimension];
     const patternLength = max-min;
-    if (patternLength >= maxLength) {
+    if (patternLength >= maxLength && patternLength >= minLength) {
       const partitions = _.range(0, maxLength).map(offset =>
         points.reduce<number[][][]>((result,p) => {
           const currentPartition = result.length;
@@ -94,16 +104,15 @@ export function partitionPattern(pattern: SiatecPattern, allPoints: Point[], dim
           return result;
         }, [[]]));
       if (partitions.length > 0) {
-        const heuristics = partitions.map(ps => ps.map(p =>
-          heuristic(newPattern(p, pattern.vectors), allPoints)));
+        const patterns = partitions.map(ps => ps.map(p => newPattern(p, pattern.vectors)));
+        const heuristics = patterns.map(ps => ps.map(p => heuristic(p, allPoints)));
         const maxes = heuristics.map(_.max);
         const i = indexOfMax(maxes);
         const numMaxes = maxes.reduce((n,m) => n + (m == maxes[i] ? 1 : 0), 0);
         //return the partition with the highest max heuristic,
         //and with the highest average if there are several ones
-        const bestPartition = numMaxes == 1 ? partitions[i]
-          : partitions[indexOfMax(heuristics.map(_.mean))];
-        return bestPartition.map(p => newPattern(p, pattern.vectors));
+        const bestPartition = numMaxes == 1 ? patterns[i] : patterns[indexOfMax(heuristics.map(_.mean))];
+        return bestPartition.filter(p => p.points.length >= minLength);
       }
     }
   }
