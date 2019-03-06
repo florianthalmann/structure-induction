@@ -46,10 +46,10 @@ function getCosiatec(points: Point[], options: OpsiatecOptions): OpsiatecResult 
   let result = <OpsiatecResult>loadCached(file, options.cacheDir);
   if (!result) {
     const optimized = getOptimized(points, options);
-    const cosiatec = performAndCache("    COSIATEC",
+    const cresult = performAndCache("    COSIATEC",
       () => cosiatec(points, options, optimized),
       file, options, options.cacheDir);
-    result = Object.assign({}, cosiatec, {
+    result = Object.assign({}, cresult, {
       numSiatecPatterns: optimized.numSiatecPatterns,
       numOptimizedPatterns: optimized.numOptimizedPatterns
     });
