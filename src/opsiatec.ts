@@ -31,12 +31,12 @@ export function opsiatec(points: Point[], options: OpsiatecOptions): OpsiatecRes
   const result = getCosiatec(points, options);
   if (options.minHeuristicValue) {
     result.patterns = result.patterns.filter((_,i) =>
-      result.scores[i] >= this.options.minHeuristicValue);
-    result.scores = result.scores.filter(s => s >= this.options.minHeuristicValue);
+      result.scores[i] >= options.minHeuristicValue);
+    result.scores = result.scores.filter(s => s >= options.minHeuristicValue);
   }
   if (options.numPatterns) {
-    result.patterns = result.patterns.slice(0, this.options.numPatterns);
-    result.scores = result.scores.slice(0, this.options.numPatterns);
+    result.patterns = result.patterns.slice(0, options.numPatterns);
+    result.scores = result.scores.slice(0, options.numPatterns);
   }
   return result;
 }
@@ -46,13 +46,15 @@ function getCosiatec(points: Point[], options: OpsiatecOptions): OpsiatecResult 
   let result = <OpsiatecResult>loadCached(file, options.cacheDir);
   if (!result) {
     const optimized = getOptimized(points, options);
-    const cresult = performAndCache("    COSIATEC",
-      () => cosiatec(points, options, optimized),
+    return performAndCache("    COSIATEC",
+      () => {
+        const cresult = cosiatec(points, options, optimized);
+        return Object.assign({}, cresult, {
+          numSiatecPatterns: optimized.numSiatecPatterns,
+          numOptimizedPatterns: optimized.numOptimizedPatterns
+        });
+      },
       file, options, options.cacheDir);
-    result = Object.assign({}, cresult, {
-      numSiatecPatterns: optimized.numSiatecPatterns,
-      numOptimizedPatterns: optimized.numOptimizedPatterns
-    });
   }
   return result;
 }
