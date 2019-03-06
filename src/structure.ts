@@ -2,7 +2,7 @@ import * as _ from 'lodash'
 import * as math from 'mathjs'
 import { indexOfMax } from 'arrayutils';
 import { Quantizer, ArrayMap } from './quantizer'
-import { opsiatec, OpsiatecOptions } from './opsiatec'
+import { opsiatec, OpsiatecOptions, OpsiatecResult } from './opsiatec'
 import { SmithWaterman, SmithWatermanResult, TRACES } from './smith-waterman'
 import { pointsToIndices } from './util';
 
@@ -12,15 +12,14 @@ export interface IterativeSmithWatermanResult {
   segmentMatrix: number[][],
 }
 
-export interface OpsiatecResult {
-  cosiatecOccurrences: number[][][],
-  numSiatecPatterns: number 
+export interface StructureOptions extends OpsiatecOptions {
+  quantizerFunctions: ArrayMap[]
 }
 
-export interface StructureOptions extends OpsiatecOptions {
-  quantizerFunctions: ArrayMap[],
-  minHeuristicValue?: number,
-  numPatterns?: number
+interface CosiatecIndexResult {
+  occurrences: number[][][],
+  numSiatecPatterns: number,
+  numOptimizedPatterns: number
 }
 
 export class StructureInducer {
@@ -38,29 +37,22 @@ export class StructureInducer {
   }
 
   //returns patterns of indices in the original point sequence
-  getCosiatecIndexOccurrences(patternIndices?: number[]): OpsiatecResult {
+  getCosiatecIndexOccurrences(): CosiatecIndexResult {
     //get the indices of the points involved
-    const occurrences = this.getCosiatecOccurrences(patternIndices);
-    const indexOccs = pointsToIndices(occurrences[0], this.quantizedPoints);
+    const result = this.getCosiatecOccurrences();
+    const occurrences = result.patterns.map(p => p.occurrences);
+    const indexOccs = pointsToIndices(occurrences, this.quantizedPoints);
     indexOccs.forEach(p => p.map(o => o.sort((a,b) => a-b)));
     return {
-      cosiatecOccurrences: indexOccs,
-      numSiatecPatterns: occurrences[1]
+      occurrences: indexOccs,
+      numSiatecPatterns: result.numSiatecPatterns,
+      numOptimizedPatterns: result.numOptimizedPatterns
     }
   }
 
   //returns occurrences of patterns in the original point sequence
-  getCosiatecOccurrences(patternIndices?: number[]): [number[][][][], number] {
-    const result =  opsiatec(this.quantizedPoints, this.options);
-    let occurrences =  result.patterns.map(p => p.occurrences);
-    if (this.options.minHeuristicValue) {
-      occurrences = occurrences.filter((_,i) =>
-        result.scores[i] >= this.options.minHeuristicValue);
-    }
-    if (this.options.numPatterns) {
-      occurrences = occurrences.slice(0, this.options.numPatterns);
-    }
-    return [occurrences, result.numSiatecPatterns];
+  getCosiatecOccurrences(): OpsiatecResult {
+    return opsiatec(this.quantizedPoints, this.options);
   }
 
   getSmithWaterman() {
