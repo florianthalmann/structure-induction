@@ -14,22 +14,23 @@ export interface SiatecPattern {
 
 export interface SiatecResult {
   points: Point[],
-  patterns: SiatecPattern[]
+  patterns: SiatecPattern[],
+  minPatternLength: number
 }
 
 export function siatec(points: number[][], minPatternLength = 0): SiatecResult {
-  console.log("TABLE")
+  //console.log("TABLE")
   let vectorTable = getVectorTable(points);
   let patterns = calculateSiaPatterns(vectorTable);
   const lengthOfAll = patterns.length;
   patterns = patterns.filter(p => p.length >= minPatternLength);
-  console.log("PATTERNS KEPT:", patterns.length, "OF", lengthOfAll)
-  console.log("VECS")
+  //console.log("PATTERNS KEPT:", patterns.length, "OF", lengthOfAll)
+  //console.log("VECS")
   const vectors = calculateSiatecOccurrences(points, patterns, vectorTable)
     .map(i => i.map(v => v.map(e => _.round(e,8)))); //eliminate float errors
   vectorTable = null;
   
-  console.log("OCCS")
+  //console.log("OCCS")
   function toOccs(patterns: Pattern[], vectors: Vector[][]) {
     const occurrences = vectors.map((v,i) =>
       v.map(w => patterns[i].map(point => point.map((p,k) => p + w[k]))));
@@ -45,9 +46,10 @@ export function siatec(points: number[][], minPatternLength = 0): SiatecResult {
   
   occurrences = _.flatten(occurrences);
   
-  console.log("RETURN")
+  //console.log("RETURN")
   return {
     points: points,
+    minPatternLength: minPatternLength,
     patterns: patterns.map((p,i) => ({
       points: p,
       vectors:vectors[i],

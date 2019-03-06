@@ -12,26 +12,27 @@ export enum OPTIMIZATION {
 export function minLength(input: SiatecResult, minLength: number): SiatecResult {
   return {
     points: input.points,
-    patterns: input.patterns.filter(p => p.points.length >= minLength)
+    patterns: input.patterns.filter(p => p.points.length >= minLength),
+    minPatternLength: minLength
   }
 }
 
 export function minimize(input: SiatecResult, heuristic: CosiatecHeuristic, dimension: number): SiatecResult {
   const patterns = input.patterns.map(p =>
     minimizePattern(p, input.points, dimension, heuristic));
-  return { points: input.points, patterns: patterns };
+  return { points: input.points, patterns: patterns, minPatternLength: input.minPatternLength };
 }
 
 export function divide(input: SiatecResult, heuristic: CosiatecHeuristic, dimension: number): SiatecResult {
   const patterns = _.flatten<SiatecPattern>(input.patterns.map(p =>
     dividePattern(p, input.points, dimension, heuristic)));
-  return { points: input.points, patterns: patterns };
+  return { points: input.points, patterns: patterns, minPatternLength: input.minPatternLength };
 }
 
 export function partition(input: SiatecResult, heuristic: CosiatecHeuristic, dimension: number): SiatecResult {
   const patterns = _.flatten<SiatecPattern>(input.patterns.map(p =>
     partitionPattern(p, input.points, dimension, heuristic)));
-  return { points: input.points, patterns: patterns };
+  return { points: input.points, patterns: patterns, minPatternLength: input.minPatternLength };
 }
 
 function minimizePattern(pattern: SiatecPattern, allPoints: Point[], dimension: number, heuristic: CosiatecHeuristic): SiatecPattern {

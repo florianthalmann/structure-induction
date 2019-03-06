@@ -28,7 +28,7 @@ export function cosiatec(points: Point[], options: CosiatecOptions = {}, siatecR
  * overlapping true: jamie's cosiatec: performs sia only once, returns the best patterns necessary to cover all points
  */
 function cosiatecLoop(points: Point[], options: CosiatecOptions, patterns?: SiatecPattern[]): CosiatecResult {
-  const result: CosiatecResult = {points: points, patterns: [], scores: []};
+  const result: CosiatecResult = {points: points, patterns: [], scores: [], minPatternLength: options.minPatternLength };
   let remainingPoints = points;
   //IN NON-OVERLAPPING THERE IS NO OPTIMIZATION SO FAR!!!!
   patterns = patterns || siatec(remainingPoints, options.minPatternLength).patterns;
