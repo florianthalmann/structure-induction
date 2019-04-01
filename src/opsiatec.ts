@@ -12,7 +12,6 @@ export interface OpsiatecOptions extends CosiatecOptions {
   optimizationDimension?: number,
   minPatternLength?: number,
   minHeuristicValue?: number,
-  numPatterns?: number,
   cacheDir?: string,
   siatecCacheDir?: string
 }
@@ -33,10 +32,6 @@ export function opsiatec(points: Point[], options: OpsiatecOptions): OpsiatecRes
     result.patterns = result.patterns.filter((_,i) =>
       result.scores[i] >= options.minHeuristicValue);
     result.scores = result.scores.filter(s => s >= options.minHeuristicValue);
-  }
-  if (options.numPatterns) {
-    result.patterns = result.patterns.slice(0, options.numPatterns);
-    result.scores = result.scores.slice(0, options.numPatterns);
   }
   return result;
 }
@@ -85,6 +80,8 @@ export function getSiatec(points: Point[], options: OpsiatecOptions): SiatecResu
   if (!result) {
     result = performAndCacheSiatec(points, options, dir); //pySiatec(points, file);
   }
+  //filter for patterns with min length
+  result = minLength(result, options.minPatternLength);
   return result;
 }
 

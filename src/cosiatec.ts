@@ -7,7 +7,8 @@ export interface CosiatecOptions {
   overlapping?: boolean,
   selectionHeuristic?: CosiatecHeuristic,
   loggingLevel?: number,
-  minPatternLength?: number
+  minPatternLength?: number,
+  numPatterns?: number
 }
 
 export interface CosiatecResult extends SiatecResult {
@@ -26,6 +27,7 @@ export function cosiatec(points: Point[], options: CosiatecOptions = {}, siatecR
  * returns an array of pairs of patterns along with their transpositions
  * overlapping false: original cosiatec: performs sia iteratively on remaining points, returns the best patterns of each step
  * overlapping true: jamie's cosiatec: performs sia only once, returns the best patterns necessary to cover all points
+ * numPatterns defined: adds more patterns to reach the number needed, or limits the pattern
  */
 function cosiatecLoop(points: Point[], options: CosiatecOptions, patterns?: SiatecPattern[]): CosiatecResult {
   const result: CosiatecResult = {points: points, patterns: [], scores: [], minPatternLength: options.minPatternLength };
@@ -34,7 +36,8 @@ function cosiatecLoop(points: Point[], options: CosiatecOptions, patterns?: Siat
   patterns = patterns || siatec(remainingPoints, options.minPatternLength).patterns;
   let scores = patterns.map(p => options.selectionHeuristic(p, remainingPoints));
   
-  while (remainingPoints.length > 0 && patterns.length > 0) {
+  while (patterns.length > 0 && (remainingPoints.length > 0
+      || (options.numPatterns && options.numPatterns < result.patterns.length))) {
     const iOfBestScore = indexOfMax(scores);
     const bestPattern = patterns[iOfBestScore];
     const previousLength = remainingPoints.length;

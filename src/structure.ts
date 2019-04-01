@@ -2,7 +2,7 @@ import * as _ from 'lodash'
 import * as math from 'mathjs'
 import { indexOfMax } from 'arrayutils';
 import { Quantizer, ArrayMap } from './quantizer'
-import { opsiatec, OpsiatecOptions, OpsiatecResult } from './opsiatec'
+import { opsiatec, getSiatec, OpsiatecOptions, OpsiatecResult } from './opsiatec'
 import { SmithWaterman, SmithWatermanResult, TRACES } from './smith-waterman'
 import { pointsToIndices } from './util';
 
@@ -24,14 +24,17 @@ interface CosiatecIndexResult {
 
 export class StructureInducer {
 
-  private quantizer: Quantizer;
   private quantizedPoints: number[][];
 
-  constructor(points: number[][], private options: StructureOptions) {
-    var quantizerFuncs = options ? options.quantizerFunctions : [];
-    this.quantizer = new Quantizer(quantizerFuncs);
-    this.quantizedPoints = this.quantizer.getQuantizedPoints(points);
-    if (options.loggingLevel > 1) {
+  constructor(private originalPoints: number[][], private options: StructureOptions) {
+    this.quantizePoints();
+  }
+  
+  quantizePoints() {
+    const quantizerFuncs = this.options ? this.options.quantizerFunctions : [];
+    const quantizer = new Quantizer(quantizerFuncs);
+    this.quantizedPoints = quantizer.getQuantizedPoints(this.originalPoints);
+    if (this.options.loggingLevel > 1) {
       console.log("quantized points:", JSON.stringify(this.quantizedPoints));
     }
   }
@@ -39,7 +42,7 @@ export class StructureInducer {
   //returns patterns of indices in the original point sequence
   getCosiatecIndexOccurrences(): CosiatecIndexResult {
     //get the indices of the points involved
-    const result = this.getCosiatecOccurrences();
+    const result = opsiatec(this.quantizedPoints, this.options);
     const occurrences = result.patterns.map(p => p.occurrences);
     const indexOccs = pointsToIndices(occurrences, this.quantizedPoints);
     indexOccs.forEach(p => p.map(o => o.sort((a,b) => a-b)));
@@ -51,8 +54,14 @@ export class StructureInducer {
   }
 
   //returns occurrences of patterns in the original point sequence
-  getCosiatecOccurrences(): OpsiatecResult {
-    return opsiatec(this.quantizedPoints, this.options);
+  getCosiatecOccurrences() {
+    return opsiatec(this.quantizedPoints, this.options)
+      .patterns.map(p => p.occurrences);
+  }
+  
+  getSiatecOccurrences() {
+    return getSiatec(this.quantizedPoints, this.options)
+      .patterns.map(p => p.occurrences);
   }
 
   getSmithWaterman() {
