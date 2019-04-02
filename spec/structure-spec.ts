@@ -80,6 +80,16 @@ describe("a structure induction algorithm", function() {
 		result = cosiatec(points, {overlapping: true, selectionHeuristic: HEURISTICS.SIZE_AND_1D_COMPACTNESS(0)});
 		patterns = result.patterns.map(p => p.points);
 		expect(JSON.stringify(patterns)).toEqual("[[[1,1],[2,1],[3,2],[4,3]],[[1,1],[1,3],[2,2]]]");
+		
+		//subset
+		result = cosiatec(points, {numPatterns: 1, overlapping: true, selectionHeuristic: HEURISTICS.SIZE_AND_1D_COMPACTNESS(0)});
+		patterns = result.patterns.map(p => p.points);
+		expect(JSON.stringify(patterns)).toEqual("[[[1,1],[2,1],[3,2],[4,3]]]");
+		
+		//additional patterns
+		result = cosiatec(points, {numPatterns: 4, overlapping: true, selectionHeuristic: HEURISTICS.SIZE_AND_1D_COMPACTNESS(0)});
+		patterns = result.patterns.map(p => p.points);
+		expect(JSON.stringify(patterns)).toEqual("[[[1,1],[2,1],[3,2],[4,3]],[[1,1],[1,3],[2,2]],[[2,1],[2,2]],[[2,1],[3,2]]]");
 	});
 
 	it("has various different heuristics", function() {
@@ -124,7 +134,7 @@ describe("a structure induction algorithm", function() {
 	
 	it("can do graph theory", () => {
 		var result = siatec(points);
-		console.log(graphs.getConnectednessRatings(result))
+		//console.log(graphs.getConnectednessRatings(result))
 	});
 
 });

@@ -93,7 +93,8 @@ function pySiatec(points, file) {
 
 export function getCosiatecOptionsString(options: OpsiatecOptions) {
   return getOptimOptionsString(options)
-    +'_'+ (options.overlapping ? options.overlapping : false);
+    +'_'+ (options.overlapping ? options.overlapping : false)
+    + (options.numPatterns ? options.numPatterns : false);
 }
 
 function getOptimOptionsString(options: OpsiatecOptions) {

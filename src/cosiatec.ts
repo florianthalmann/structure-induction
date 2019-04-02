@@ -27,7 +27,7 @@ export function cosiatec(points: Point[], options: CosiatecOptions = {}, siatecR
  * returns an array of pairs of patterns along with their transpositions
  * overlapping false: original cosiatec: performs sia iteratively on remaining points, returns the best patterns of each step
  * overlapping true: jamie's cosiatec: performs sia only once, returns the best patterns necessary to cover all points
- * numPatterns defined: adds more patterns to reach the number needed, or limits the pattern
+ * numPatterns defined: returns the n best overlapping cosiatec patterns, plus more if n larger than the number of cosiatec patterns
  */
 function cosiatecLoop(points: Point[], options: CosiatecOptions, patterns?: SiatecPattern[]): CosiatecResult {
   const result: CosiatecResult = {points: points, patterns: [], scores: [], minPatternLength: options.minPatternLength };
@@ -36,15 +36,15 @@ function cosiatecLoop(points: Point[], options: CosiatecOptions, patterns?: Siat
   patterns = patterns || siatec(remainingPoints, options.minPatternLength).patterns;
   let scores = patterns.map(p => options.selectionHeuristic(p, remainingPoints));
   
-  while (patterns.length > 0 && (remainingPoints.length > 0
-      || (options.numPatterns && options.numPatterns < result.patterns.length))) {
+  while (patterns.length > 0 && remainingPoints.length > 0
+      && (!options.numPatterns || result.patterns.length < options.numPatterns)) {
     const iOfBestScore = indexOfMax(scores);
     const bestPattern = patterns[iOfBestScore];
     const previousLength = remainingPoints.length;
     remainingPoints = getComplement(bestPattern, remainingPoints);
     
     //only add to results if the pattern includes points in no other pattern
-    //always true in non-overlapping cosiatec
+    //always true in non-overlapping cosiatec and if numPatterns higher than cosiatec patterns
     if (previousLength > remainingPoints.length) {
       if (options.loggingLevel > 1) logPointsAndPatterns(remainingPoints, patterns);
       result.patterns.push(bestPattern);
@@ -61,7 +61,30 @@ function cosiatecLoop(points: Point[], options: CosiatecOptions, patterns?: Siat
     }
   }
   
+  //add more patterns if necessary, but only ones with differing point sets
+  if (options.numPatterns && result.patterns.length < options.numPatterns) {
+    const patternStrings = result.patterns.map(toOrderedPointString);
+    
+    while (patterns.length > 0 && result.patterns.length < options.numPatterns) {
+      const iOfBestScore = indexOfMax(scores);
+      const bestPattern = patterns[iOfBestScore];
+      const bestPatternString = toOrderedPointString(bestPattern);
+      
+      if (patternStrings.indexOf(bestPatternString) < 0) {
+        result.patterns.push(bestPattern);
+        result.scores.push(scores[iOfBestScore]);
+        patternStrings.push(bestPatternString);
+      }
+      
+      [patterns, scores].forEach(a => a.splice(iOfBestScore, 1));
+    }
+  }
+  
   return result;
+}
+
+function toOrderedPointString(pattern: SiatecPattern): string {
+  return JSON.stringify(_.sortBy(_.clone(pattern.points)));
 }
 
 /** returns the complement of the pattern in points */
