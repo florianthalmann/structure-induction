@@ -1,5 +1,6 @@
 import * as _ from 'lodash';
 import { intersectSortedArrays, mergeSortedArrays } from 'arrayutils';
+import { toOrderedPointString } from './util';
 
 export type Point = number[];
 export type Pattern = Point[];
@@ -18,33 +19,36 @@ export interface SiatecResult {
   minPatternLength: number
 }
 
-export function siatec(points: number[][], minPatternLength = 0): SiatecResult {
-  //console.log("TABLE")
+export function siatec(points: number[][], minPatternLength = 0, removeRedundant = true): SiatecResult {
   let vectorTable = getVectorTable(points);
   let patterns = calculateSiaPatterns(vectorTable);
-  const lengthOfAll = patterns.length;
+  
+  //remove short patterns
   patterns = patterns.filter(p => p.length >= minPatternLength);
-  //console.log("PATTERNS KEPT:", patterns.length, "OF", lengthOfAll)
-  //console.log("VECS")
-  const vectors = calculateSiatecOccurrences(points, patterns, vectorTable)
-    .map(i => i.map(v => v.map(e => _.round(e,8)))); //eliminate float errors
-  vectorTable = null;
   
-  //console.log("OCCS")
-  function toOccs(patterns: Pattern[], vectors: Vector[][]) {
-    const occurrences = vectors.map((v,i) =>
-      v.map(w => patterns[i].map(point => point.map((p,k) => p + w[k]))));
-    return occurrences;
+  //calculate vectors
+  const vectors = getVectorMap(points, patterns, vectorTable);
+  vectorTable = null; //release memory
+  
+  //calculate occurrences
+  let occs: Occurrence[][][] = [];
+  for (let i = 0; i < patterns.length; i+=1000) {
+    occs.push(toOccs(patterns.slice(i, i+1000), vectors));
   }
+  let occurrences = new Map<Pattern,Occurrence[]>(_.zip(patterns, _.flatten(occs)));
   
-  //console.log(patterns.length, sizeof(vectors)/1024/1024)
-  
-  let occurrences = [];
-  for (let i = 0; i < vectors.length; i+=1000) {
-    occurrences.push(toOccs(patterns.slice(i, i+1000), vectors.slice(i, i+1000)));
+  //remove redundant
+  if (removeRedundant) {
+    const reduced = {};
+    patterns.forEach(p => {
+      const stringO = JSON.stringify(occurrences.get(p));
+      if (!reduced[stringO] || vectors.get(p).length > vectors.get(reduced[stringO]).length) {
+        reduced[stringO] = p;
+      }
+    });
+    //console.log('removed redundant:', patterns.length-_.values(reduced).length, 'of', patterns.length)
+    patterns = _.values(reduced);
   }
-  
-  occurrences = _.flatten(occurrences);
   
   //console.log("RETURN")
   return {
@@ -52,10 +56,21 @@ export function siatec(points: number[][], minPatternLength = 0): SiatecResult {
     minPatternLength: minPatternLength,
     patterns: patterns.map((p,i) => ({
       points: p,
-      vectors:vectors[i],
-      occurrences: occurrences[i]
+      vectors:vectors.get(p),
+      occurrences: occurrences.get(p)
     }))
   };
+}
+
+function toOccs(patterns: Pattern[], vectors: Map<Pattern, Vector[]>) {
+  return patterns.map(p => vectors.get(p).map(v =>
+    p.map(point => point.map((p,k) => p + v[k]))));
+}
+
+function getVectorMap(points: Point[], patterns: Pattern[], vectorTable: [Vector, Point][][]) {
+  const vectors = calculateSiatecOccurrences(points, patterns, vectorTable)
+    .map(i => i.map(v => v.map(e => _.round(e,8)))); //eliminate float errors
+  return new Map<Pattern, Vector[]>(_.zip(patterns, vectors));
 }
 
 function getVectorTable(points: Point[]): [Vector, Point][][] {
@@ -71,8 +86,9 @@ function calculateSiaPatterns(vectorTable: [Vector, Point][][]): Pattern[] {
   var vectorList: [Vector, Point][] = mergeSortedArrays(halfTable);
   //group by translation vectors
   var patternMap = groupByKeys(vectorList);
-  //get the map's values
-  return Object.keys(patternMap).map(key => patternMap[key]);
+  //get the map's values, get rid of duplicates
+  return _.uniq(_.values(patternMap).map(toOrderedPointString))
+    .map(p => JSON.parse(p));
 }
 
 //returns a list with the

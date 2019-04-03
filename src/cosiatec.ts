@@ -1,7 +1,8 @@
 import * as _ from 'lodash'
-import { indexOfMax, compareArrays } from 'arrayutils'
+import { indexOfMax, compareArrays } from 'arrayutils';
 import { siatec, SiatecResult, SiatecPattern, Point } from './siatec';
-import { HEURISTICS, CosiatecHeuristic } from './heuristics'
+import { HEURISTICS, CosiatecHeuristic } from './heuristics';
+import { toOrderedPointString } from './util';
 
 export interface CosiatecOptions {
   overlapping?: boolean,
@@ -46,6 +47,7 @@ function cosiatecLoop(points: Point[], options: CosiatecOptions, patterns?: Siat
     //only add to results if the pattern includes points in no other pattern
     //always true in non-overlapping cosiatec and if numPatterns higher than cosiatec patterns
     if (previousLength > remainingPoints.length) {
+      //console.log(toOrderedPointString(bestPattern))
       if (options.loggingLevel > 1) logPointsAndPatterns(remainingPoints, patterns);
       result.patterns.push(bestPattern);
       result.scores.push(scores[iOfBestScore]);
@@ -63,14 +65,15 @@ function cosiatecLoop(points: Point[], options: CosiatecOptions, patterns?: Siat
   
   //add more patterns if necessary, but only ones with differing point sets
   if (options.numPatterns && result.patterns.length < options.numPatterns) {
-    const patternStrings = result.patterns.map(toOrderedPointString);
+    const patternStrings = result.patterns.map(p => toOrderedPointString(p.points));
     
     while (patterns.length > 0 && result.patterns.length < options.numPatterns) {
       const iOfBestScore = indexOfMax(scores);
       const bestPattern = patterns[iOfBestScore];
-      const bestPatternString = toOrderedPointString(bestPattern);
+      const bestPatternString = toOrderedPointString(bestPattern.points);
       
       if (patternStrings.indexOf(bestPatternString) < 0) {
+        //console.log(toOrderedPointString(bestPattern))//, patternStrings);
         result.patterns.push(bestPattern);
         result.scores.push(scores[iOfBestScore]);
         patternStrings.push(bestPatternString);
@@ -81,10 +84,6 @@ function cosiatecLoop(points: Point[], options: CosiatecOptions, patterns?: Siat
   }
   
   return result;
-}
-
-function toOrderedPointString(pattern: SiatecPattern): string {
-  return JSON.stringify(_.sortBy(_.clone(pattern.points)));
 }
 
 /** returns the complement of the pattern in points */

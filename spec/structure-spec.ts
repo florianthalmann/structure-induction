@@ -6,6 +6,7 @@ import { QUANT_FUNCS } from '../src/quantizer';
 import { HEURISTICS } from '../src/heuristics';
 import * as optimizer from '../src/optimizer';
 import * as graphs from '../src/graphs';
+import { toOrderedPointString } from '../src/util';
 
 describe("a structure induction algorithm", function() {
 
@@ -26,18 +27,22 @@ describe("a structure induction algorithm", function() {
 	});*/
 
 	it("can find repeating geometric patterns", function() {
+		
 		var result = siatec(points);
 
-		expect(result.patterns.length).toBe(17);
-		expect(result.patterns[5].points.length).toBe(4);
+		expect(result.patterns.length).toBe(6);
+		expect(JSON.stringify(result.patterns.map(p=>p.points)))
+			.toBe('[[[2,1],[2,2]],[[1,1],[2,1]],[[1,3]],[[1,1],[1,3],[2,2]],[[1,1],[2,1],[3,2],[4,3]],[[1,1],[2,2]]]');
+		
+		const COOLEST = 4;
 
 		var occurrences = result.patterns.map(p => p.occurrences);
-		expect(occurrences.length).toBe(17);
-		expect(occurrences[2].length).toBe(3);
+		expect(occurrences.length).toBe(6);
+		expect(JSON.stringify(occurrences[COOLEST])).toBe('[[[1,1],[2,1],[3,2],[4,3]],[[2,2],[3,2],[4,3],[5,4]]]');
 		//console.log(JSON.stringify(occurrences))
 
-		var original = result.patterns[5];
-		var minimized = optimizer.minimize(result, HEURISTICS.COMPACTNESS, 0).patterns[5];
+		var original = result.patterns[COOLEST];
+		var minimized = optimizer.minimize(result, HEURISTICS.COMPACTNESS, 0).patterns[COOLEST];
 		//console.log(JSON.stringify(minimized));
 		expect(original.points.length).toBe(4);
 		expect(minimized.points.length).toBe(2);
@@ -89,33 +94,33 @@ describe("a structure induction algorithm", function() {
 		//additional patterns
 		result = cosiatec(points, {numPatterns: 4, overlapping: true, selectionHeuristic: HEURISTICS.SIZE_AND_1D_COMPACTNESS(0)});
 		patterns = result.patterns.map(p => p.points);
-		expect(JSON.stringify(patterns)).toEqual("[[[1,1],[2,1],[3,2],[4,3]],[[1,1],[1,3],[2,2]],[[2,1],[2,2]],[[2,1],[3,2]]]");
+		expect(JSON.stringify(patterns)).toEqual("[[[1,1],[2,1],[3,2],[4,3]],[[1,1],[1,3],[2,2]],[[2,1],[2,2]],[[1,1],[2,1]]]");
 	});
 
 	it("has various different heuristics", function() {
 		var result = siatec(points);
 
 		var coverage = result.patterns.map(p => HEURISTICS.COVERAGE(p, points));
-		expect(coverage).toEqual([ 0.375, 0.75, 0.75, 1, 0.75, 0.75, 1, 1, 1, 0.75, 0.75, 1, 1, 0.75, 1, 1, 1 ]);
+		expect(coverage).toEqual([0.375,0.75,1,0.75,0.75,0.75]);
 
 		var compactness = result.patterns.map(p => HEURISTICS.COMPACTNESS(p, points));
-		expect(compactness).toEqual([ 1, 1, 1, 1, 0.6, 0.5714285714285714, 1, 1, 1, 0.6666666666666666, 0.6666666666666666, 1, 1, 0.6666666666666666, 1, 1, 1 ]);
+		expect(compactness).toEqual([1,1,1,0.6,0.5714285714285714,0.6666666666666666]);
 		
 		var sizeComp = result.patterns.map(p => HEURISTICS.SIZE_AND_COMPACTNESS(p, points));
-		expect(sizeComp).toEqual([ 1.7411011265922482, 1.7411011265922482, 1.7411011265922482, 1, 1.4449348111684153, 1.7322475045833123, 1, 1, 1, 1.1607340843948322, 1.1607340843948322, 1, 1, 1.1607340843948322, 1, 1, 1 ]);
+		expect(sizeComp).toEqual([1.7411011265922482,1.7411011265922482,1,1.4449348111684153,1.7322475045833123,1.1607340843948322]);
 		
 		var size1DComp = result.patterns.map(p => HEURISTICS.SIZE_AND_1D_COMPACTNESS(0)(p, points));
-		expect(size1DComp).toEqual([ 1.1607340843948322, 0.6964404506368993, 0.6964404506368993, 0.5, 1.4449348111684153, 1.7322475045833123, 0.5, 0.5, 0.3333333333333333, 0.6964404506368993, 0.8705505632961241, 0.5, 0.3333333333333333, 0.6964404506368993, 0.3333333333333333, 0.5, 0.5 ]);
+		expect(size1DComp).toEqual([1.1607340843948322,0.6964404506368993,0.5,1.4449348111684153,1.7322475045833123,0.6964404506368993]);
 		
 		var vecs = result.patterns.map(p => p.vectors)
 		var regs = vecs.map(v => HEURISTICS.getVectorsRegularity(v, 0));
-		expect(regs).toEqual([0,0,0,0.5,0,0,0.5,0.5,0.2,0.3333333333333333,0.3333333333333333,0.5,0.2,0.3333333333333333,0.2,0.5,0.5])
+		expect(regs).toEqual([0,0,0.5,0,0,0.3333333333333333])
 		
 		var para = vecs.map(v => HEURISTICS.getAxisParallelism(v, 0));
-		expect(para).toEqual([0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0]);
+		expect(para).toEqual([0,0,0,1,0,0]);
 		
 		var anti = vecs.map(v => HEURISTICS.getAxisNonParallelism(v, 0));
-		expect(anti).toEqual([1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1]);
+		expect(anti).toEqual([1,1,1,0,1,1]);
 		
 		//test bounding box
 		//const points = HEURISTICS.getPointsInBoundingBox()
@@ -135,6 +140,10 @@ describe("a structure induction algorithm", function() {
 	it("can do graph theory", () => {
 		var result = siatec(points);
 		//console.log(graphs.getConnectednessRatings(result))
+	});
+	
+	it("has some utils", () => {
+		expect(toOrderedPointString([[10,3],[9,5],[9,4],[9,10]])).toBe('[[9,4],[9,5],[9,10],[10,3]]');
 	});
 
 });

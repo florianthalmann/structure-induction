@@ -1,5 +1,12 @@
 import * as _ from 'lodash';
 import { Point, Occurrence } from './siatec';
+import { compareArrays } from 'arrayutils';
+
+export function toOrderedPointString(points: number[][]): string {
+  const clone = _.clone(points);
+  clone.sort(compareArrays);
+  return JSON.stringify(clone);
+}
 
 export function pointsToIndices(occurrences: Occurrence[][], points: Point[]): number[][][] {
   const pointStrings = points.map(p => JSON.stringify(p));
