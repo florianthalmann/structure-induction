@@ -1,5 +1,5 @@
 import * as _ from 'lodash';
-import { indexOfMax } from 'arrayutils';
+import { indexOfMax, compareArrays } from 'arrayutils';
 import { SiatecResult, SiatecPattern, Point, Vector } from './siatec';
 import { CosiatecHeuristic } from './heuristics';
 
@@ -111,12 +111,48 @@ export function partitionPattern(pattern: SiatecPattern, allPoints: Point[], dim
         const numMaxes = maxes.reduce((n,m) => n + (m == maxes[i] ? 1 : 0), 0);
         //return the partition with the highest max heuristic,
         //and with the highest average if there are several ones
-        const bestPartition = numMaxes == 1 ? patterns[i] : patterns[indexOfMax(heuristics.map(_.mean))];
-        return bestPartition.filter(p => p.points.length >= minLength);
+        let bestPartition = numMaxes == 1 ? patterns[i] : patterns[indexOfMax(heuristics.map(_.mean))];
+        bestPartition = bestPartition.filter(p => p.points.length >= minLength);
+        //unite patterns with identical point sets
+        return unitePatterns(bestPartition);
       }
     }
   }
   return [pattern];
+}
+
+function unitePatterns(patterns: SiatecPattern[]): SiatecPattern[] {
+  const norms = patterns.map(p => toNormalForm(p.points));
+  const grouped = _.groupBy(norms, n => JSON.stringify(n));
+  return _.values(grouped).map(g => combine(g.map(n =>
+      patterns[norms.indexOf(n)])));
+}
+
+function combine(patterns: SiatecPattern[]): SiatecPattern {
+  while (patterns.length > 1) {
+    const distance = _.zipWith(patterns[1].points[0],
+      patterns[0].points[0], _.subtract);
+    patterns[0].vectors = concatUniqAndSort(patterns[0].vectors, 
+      patterns[1].vectors.map(v => _.zipWith(v, distance, _.add)));
+    patterns[0].occurrences = concatUniqAndSort(patterns[0].occurrences,
+      patterns[1].occurrences);
+    patterns.splice(1, 1);
+  }
+  return patterns[0];
+}
+
+function concatUniqAndSort<T>(points: T[][], points2: T[][]): T[][] {
+  const result = _.uniq(points.concat(points2).map(p => JSON.stringify(p)))
+    .map(p => JSON.parse(p));
+  result.sort(compareArrays);
+  return result;
+}
+
+function toNormalForm(pattern: number[][]) {
+  const normalForm = _.cloneDeep(pattern);
+  normalForm.sort(compareArrays);
+  const offset = normalForm[0];
+  return normalForm.map(p => _.zipWith(p, offset, _.subtract));
 }
 
 function cloneAndSortPoints(pattern: SiatecPattern, dimension: number): Point[] {

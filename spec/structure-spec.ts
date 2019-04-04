@@ -55,24 +55,35 @@ describe("a structure induction algorithm", function() {
 		expect(JSON.stringify(divided)).toBe('[[[1,1]],[[2,1]],[[3,2],[4,3]]]');
 		
 		var partitioned = optimizer
-			.partitionPattern(original, points, 0, HEURISTICS.COMPACTNESS)
-			.map(p => p.points);
+			.partitionPattern(original, points, 0, HEURISTICS.COMPACTNESS);
 		//all individual partitions due to vectors [[0,0],[1,1]]
-		expect(JSON.stringify(partitioned)).toBe('[[[1,1]],[[2,1]],[[3,2]],[[4,3]]]');
+		expect(JSON.stringify(partitioned.map(p => p.points))).toBe('[[[1,1]]]');
+		expect(JSON.stringify(partitioned.map(p => p.vectors)))
+			.toBe('[[[0,0],[1,0],[1,1],[2,1],[3,2],[4,3]]]');
+		expect(JSON.stringify(partitioned.map(p => p.occurrences)))
+			.toBe('[[[[1,1]],[[2,1]],[[2,2]],[[3,2]],[[4,3]],[[5,4]]]]');
 		
 		original.vectors = [[0,0],[2,0]];
 		partitioned = optimizer
-			.partitionPattern(original, points, 0, HEURISTICS.COMPACTNESS)
-			.map(p => p.points);
+			.partitionPattern(original, points, 0, HEURISTICS.COMPACTNESS);
 		//partition down the middle the best
-		expect(JSON.stringify(partitioned)).toBe('[[[1,1],[2,1]],[[3,2],[4,3]]]');
+		expect(JSON.stringify(partitioned.map(p => p.points)))
+			.toBe('[[[1,1],[2,1]],[[3,2],[4,3]]]');
+		expect(JSON.stringify(partitioned.map(p => p.vectors)))
+			.toBe('[[[0,0],[2,0]],[[0,0],[2,0]]]');
+		expect(JSON.stringify(partitioned.map(p => p.occurrences)))
+			.toBe('[[[[1,1],[2,1]],[[3,1],[4,1]]],[[[3,2],[4,3]],[[5,2],[6,3]]]]');
 		
 		original.vectors = [[0,0],[3,0]];
 		partitioned = optimizer
-			.partitionPattern(original, points, 0, HEURISTICS.COMPACTNESS)
-			.map(p => p.points);
+			.partitionPattern(original, points, 0, HEURISTICS.COMPACTNESS);
 		//partition down the middle still heuristically the best
-		expect(JSON.stringify(partitioned)).toBe('[[[1,1],[2,1]],[[3,2],[4,3]]]');
+		expect(JSON.stringify(partitioned.map(p => p.points)))
+			.toBe('[[[1,1],[2,1]],[[3,2],[4,3]]]');
+		expect(JSON.stringify(partitioned.map(p => p.vectors)))
+			.toBe('[[[0,0],[3,0]],[[0,0],[3,0]]]');
+		expect(JSON.stringify(partitioned.map(p => p.occurrences)))
+			.toBe('[[[[1,1],[2,1]],[[4,1],[5,1]]],[[[3,2],[4,3]],[[6,2],[7,3]]]]');
 	});
 
 	it("can select the best patterns", function() {
