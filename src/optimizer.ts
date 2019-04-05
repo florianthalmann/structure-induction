@@ -24,14 +24,16 @@ export function minimize(input: SiatecResult, heuristic: CosiatecHeuristic, dime
 }
 
 export function divide(input: SiatecResult, heuristic: CosiatecHeuristic, dimension: number, minLength?: number): SiatecResult {
-  const patterns = _.flatten<SiatecPattern>(input.patterns.map(p =>
+  let patterns = _.flatten<SiatecPattern>(input.patterns.map(p =>
     dividePattern(p, input.points, dimension, heuristic, minLength)));
+  patterns = unitePatterns(patterns);
   return { points: input.points, patterns: patterns, minPatternLength: minLength };
 }
 
 export function partition(input: SiatecResult, heuristic: CosiatecHeuristic, dimension: number, minLength?: number): SiatecResult {
-  const patterns = _.flatten<SiatecPattern>(input.patterns.map(p =>
+  let patterns = _.flatten<SiatecPattern>(input.patterns.map(p =>
     partitionPattern(p, input.points, dimension, heuristic, minLength)));
+  patterns = unitePatterns(patterns);
   return { points: input.points, patterns: patterns, minPatternLength: minLength };
 }
 
@@ -121,7 +123,7 @@ export function partitionPattern(pattern: SiatecPattern, allPoints: Point[], dim
   return [pattern];
 }
 
-function unitePatterns(patterns: SiatecPattern[]): SiatecPattern[] {
+export function unitePatterns(patterns: SiatecPattern[]): SiatecPattern[] {
   const norms = patterns.map(p => toNormalForm(p.points));
   const grouped = _.groupBy(norms, n => JSON.stringify(n));
   return _.values(grouped).map(g => combine(g.map(n =>

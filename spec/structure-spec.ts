@@ -84,6 +84,18 @@ describe("a structure induction algorithm", function() {
 			.toBe('[[[0,0],[3,0]],[[0,0],[3,0]]]');
 		expect(JSON.stringify(partitioned.map(p => p.occurrences)))
 			.toBe('[[[[1,1],[2,1]],[[4,1],[5,1]]],[[[3,2],[4,3]],[[6,2],[7,3]]]]');
+		
+		const allMind = optimizer.minimize(result, HEURISTICS.COMPACTNESS, 0);
+		expect(allMind.patterns.length).toBe(result.patterns.length);
+		
+		const allDivd = optimizer.divide(result, HEURISTICS.COMPACTNESS, 0);
+		expect(allDivd.patterns.length).toBe(4);
+		
+		const allPartd = optimizer.partition(result, HEURISTICS.COMPACTNESS, 0);
+		expect(allPartd.patterns.length).toBe(5);
+		
+		//original result should already be grouped correctly
+		expect(optimizer.unitePatterns(result.patterns).length).toBe(6);
 	});
 
 	it("can select the best patterns", function() {
