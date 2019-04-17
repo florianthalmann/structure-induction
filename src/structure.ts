@@ -55,8 +55,11 @@ export class StructureInducer {
 
   //returns occurrences of patterns in the original point sequence
   getCosiatecOccurrences() {
-    return opsiatec(this.quantizedPoints, this.options)
-      .patterns.map(p => p.occurrences);
+    return this.getCosiatec().patterns.map(p => p.occurrences);
+  }
+  
+  getCosiatec() {
+    return opsiatec(this.quantizedPoints, this.options);
   }
   
   getSiatecOccurrences() {

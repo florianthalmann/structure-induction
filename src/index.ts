@@ -5,5 +5,5 @@ export { Quantizer, ArrayMap, QUANT_FUNCS } from './quantizer';
 export { SmithWaterman } from './smith-waterman';
 export { CosiatecHeuristic, HEURISTICS } from './heuristics';
 export { OPTIMIZATION } from './optimizer';
-export { getCosiatecOptionsString } from './opsiatec';
+export { getCosiatecOptionsString, OpsiatecResult } from './opsiatec';
 export { getConnectednessRatings } from './graphs';
