@@ -7,3 +7,4 @@ export { CosiatecHeuristic, HEURISTICS } from './heuristics';
 export { OPTIMIZATION } from './optimizer';
 export { getCosiatecOptionsString, OpsiatecResult } from './opsiatec';
 export { getConnectednessRatings } from './graphs';
+export { pointsToIndices } from './util';

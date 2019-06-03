@@ -10,6 +10,8 @@ export const QUANT_FUNCS = {
 	SUMMARIZE: getSummarize,
 	SORTED_SUMMARIZE: getSortedSummarize,
 	TRANSP_SORTED_SUMMARIZE: getTransposedSortedSummarize,
+	ABOVE_MEAN: getAboveMean,
+	ABOVE_STD: getAboveStd,
 	DISCRETIZE: getDiscretize,
 	CLUSTER: getCluster,
 	SCALE: scale,
@@ -51,6 +53,23 @@ function getSummarize(outDims: number): ArrayMap {
 /** returns a function that summarizes and sorts the arrays of an array */
 function getSortedSummarize(outDims: number): ArrayMap {
 	return _.flow(getSummarize(outDims), sort);
+}
+
+/** returns a function that maps all arrays onto the values above their average */
+function getAboveMean(): ArrayMap {
+	return toMatrixMap((values: number[]) => {
+		const mean = _.mean(values);
+		return values.map((v,i) => v > mean ? i : -1).filter(i => i > -1);
+	});
+}
+
+/** returns a function that maps all arrays onto the values above their average */
+function getAboveStd(): ArrayMap {
+	return toMatrixMap((values: number[]) => {
+		const mean = _.mean(values);
+		const st = std(values, mean);
+		return values.map((v,i) => v > mean+st ? i : -1).filter(i => i > -1);
+	});
 }
 
 //TODO IS NOT REALLY SET CLASS YET, NEED TO INVERT POTENTIALLY!!
