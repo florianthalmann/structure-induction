@@ -26,14 +26,14 @@ export function minimize(input: SiatecResult, heuristic: CosiatecHeuristic, dime
 export function divide(input: SiatecResult, heuristic: CosiatecHeuristic, dimension: number, minLength?: number): SiatecResult {
   let patterns = _.flatten<SiatecPattern>(input.patterns.map(p =>
     dividePattern(p, input.points, dimension, heuristic, minLength)));
-  patterns = unitePatterns(patterns);
+  patterns = unitePatterns(patterns).map(p => newPattern(p.points, p.vectors)); //update occurrences
   return { points: input.points, patterns: patterns, minPatternLength: minLength };
 }
 
 export function partition(input: SiatecResult, heuristic: CosiatecHeuristic, dimension: number, minLength?: number): SiatecResult {
   let patterns = _.flatten<SiatecPattern>(input.patterns.map(p =>
     partitionPattern(p, input.points, dimension, heuristic, minLength)));
-  patterns = unitePatterns(patterns);
+  patterns = unitePatterns(patterns).map(p => newPattern(p.points, p.vectors)); //update occurrences
   return { points: input.points, patterns: patterns, minPatternLength: minLength };
 }
 
