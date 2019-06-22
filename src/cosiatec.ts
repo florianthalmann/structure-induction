@@ -5,7 +5,8 @@ import { HEURISTICS, CosiatecHeuristic } from './heuristics';
 import { toOrderedPointString } from './util';
 
 export interface CosiatecOptions {
-  overlapping?: boolean,
+  overlapping?: boolean, //overlapping is jamie's algorithm
+  ignoreNovelty?: boolean, //takes any best pattern even if no new points (best used together with min heuristic value)
   selectionHeuristic?: CosiatecHeuristic,
   loggingLevel?: number,
   minPatternLength?: number,
@@ -46,14 +47,14 @@ function cosiatecLoop(points: Point[], options: CosiatecOptions, patterns?: Siat
     
     //only add to results if the pattern includes points in no other pattern
     //always true in non-overlapping cosiatec and if numPatterns higher than cosiatec patterns
-    if (previousLength > remainingPoints.length) {
-      //console.log(toOrderedPointString(bestPattern))
+    //if ignoreNovelty is true, add anyway
+    if (previousLength > remainingPoints.length || options.ignoreNovelty) {
       if (options.loggingLevel > 1) logPointsAndPatterns(remainingPoints, patterns);
       result.patterns.push(bestPattern);
       result.scores.push(scores[iOfBestScore]);
     }
     
-    if (options.overlapping) {
+    if (options.overlapping || options.ignoreNovelty) {
       //remove best pattern and score
       [patterns, scores].forEach(a => a.splice(iOfBestScore, 1));
     } else {
