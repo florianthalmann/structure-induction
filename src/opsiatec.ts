@@ -3,14 +3,13 @@ import * as fs from 'fs';
 import { execSync } from 'child_process';
 import { siatec, SiatecResult, Point } from './siatec';
 import { cosiatec, CosiatecResult, CosiatecOptions } from './cosiatec';
-import { CosiatecHeuristic } from './heuristics';
+import { CosiatecHeuristic, HEURISTICS } from './heuristics';
 import { OPTIMIZATION, minLength, minimize, divide, partition } from './optimizer';
 
 export interface OpsiatecOptions extends CosiatecOptions {
   optimizationMethods?: number[],
   optimizationHeuristic?: CosiatecHeuristic,
   optimizationDimension?: number,
-  minPatternLength?: number,
   minHeuristicValue?: number,
   cacheDir?: string,
   siatecCacheDir?: string
@@ -28,7 +27,7 @@ interface OptimizedResult extends SiatecResult {
 
 export function opsiatec(points: Point[], options: OpsiatecOptions): OpsiatecResult {
   const result = getCosiatec(points, options);
-  if (options.minHeuristicValue) {
+  if (options.minHeuristicValue != null) { //could be 0 if heuristics go negative
     result.patterns = result.patterns.filter((_,i) =>
       result.scores[i] >= options.minHeuristicValue);
     result.scores = result.scores.filter(s => s >= options.minHeuristicValue);
@@ -93,14 +92,30 @@ function pySiatec(points, file) {
 
 export function getCosiatecOptionsString(options: OpsiatecOptions) {
   return getOptimOptionsString(options)
-    +'_'+ (options.overlapping ? options.overlapping : false)
-    + (options.numPatterns ? options.numPatterns : '');
+    +'_'+ (options.overlapping ? 't' : '')
+    +'_'+ (options.ignoreNovelty ? 't' : '')
+    +'_'+ heuristicToSymbol(options.selectionHeuristic)
+    +'_'+ (options.minPatternLength != null ? options.minPatternLength : '')
+    +'_'+ (options.numPatterns ? options.numPatterns : ''); //0 == null
 }
 
 function getOptimOptionsString(options: OpsiatecOptions) {
   return _.sortBy(options.optimizationMethods).map(m => m.toString()).join('')
+    +'_'+ heuristicToSymbol(options.optimizationHeuristic)
     +'_'+ (options.optimizationDimension != null ? options.optimizationDimension : '')
-    +'_'+ (options.minPatternLength != null ? options.minPatternLength : '');
+    +'_'+ (options.minHeuristicValue != null ? options.minHeuristicValue : '');
+}
+
+function heuristicToSymbol(heuristic: CosiatecHeuristic) {
+  const str = heuristic.toString();
+  const name = str === HEURISTICS.SIZE_AND_1D_COMPACTNESS(0).toString() ? "s0"
+    : str === HEURISTICS.SIZE_AND_1D_COMPACTNESS_AXIS(0).toString() ? "a0"
+    : str === HEURISTICS.SIZE_AND_1D_COMPACTNESS_NOAXIS(0).toString() ? "n0"
+    : str === HEURISTICS.COMPACTNESS.toString() ? "m"
+    : str === HEURISTICS.COVERAGE.toString() ? "v" : null;
+  if (name != null) {
+    return name;
+  } else throw new Error("heuristic unknown to options string generator");
 }
 
 function needToOptimize(options: OpsiatecOptions) {
