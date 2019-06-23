@@ -11,8 +11,7 @@ export interface OpsiatecOptions extends CosiatecOptions {
   optimizationHeuristic?: CosiatecHeuristic,
   optimizationDimension?: number,
   minHeuristicValue?: number,
-  cacheDir?: string,
-  siatecCacheDir?: string
+  cacheDir?: string
 }
 
 export interface OpsiatecResult extends CosiatecResult {
@@ -74,10 +73,9 @@ function getOptimized(points: Point[], options: OpsiatecOptions): OptimizedResul
 }
 
 export function getSiatec(points: Point[], options: OpsiatecOptions): SiatecResult {
-  const dir = options.siatecCacheDir ? options.siatecCacheDir : options.cacheDir;
-  let result = loadCachedSiatec(dir);
+  let result = loadCachedSiatec(options.cacheDir);
   if (!result) {
-    result = performAndCacheSiatec(points, options, dir); //pySiatec(points, file);
+    result = performAndCacheSiatec(points, options, options.cacheDir); //pySiatec(points, file);
   }
   //filter for patterns with min length
   result = minLength(result, options.minPatternLength);
