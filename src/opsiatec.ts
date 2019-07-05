@@ -94,7 +94,7 @@ export function getCosiatecOptionsString(options: OpsiatecOptions) {
     +'_'+ (options.ignoreNovelty ? 't' : '')
     +'_'+ heuristicToSymbol(options.selectionHeuristic)
     +'_'+ (options.minPatternLength != null ? options.minPatternLength : '')
-    +'_'+ (options.numPatterns ? options.numPatterns : ''); //0 == null
+    +'_'+ (options.numPatterns ? options.numPatterns : ''); //0 == null (unlimited)
 }
 
 function getOptimOptionsString(options: OpsiatecOptions) {
