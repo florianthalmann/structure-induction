@@ -181,7 +181,11 @@ function loadJson(file: string) {
 }
 
 function saveJson(path: string, json: {}) {
-  fs.writeFileSync(path, JSON.stringify(json));
+  try {
+    fs.writeFileSync(path, JSON.stringify(json));
+  } catch (e) {
+    console.log('failed to cache '+path);
+  }
 }
 
 function execute(command: string) {
