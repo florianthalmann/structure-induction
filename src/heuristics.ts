@@ -48,6 +48,13 @@ export module HEURISTICS {
 		return (pattern: SiatecPattern, allPoints: number[][]) =>
 			Math.pow(pattern.points.length, power)
 				/ getPointsInBoundingBox(pattern.points, allPoints, dimIndex).length
+				* getAxisStrictParallelism(pattern.vectors, dimIndex);
+	}
+	
+	export const SIZE_AND_1D_COMPACTNESS_AXIS2 = function(dimIndex: number, power = 1.8): CosiatecHeuristic {
+		return (pattern: SiatecPattern, allPoints: number[][]) =>
+			Math.pow(pattern.points.length, power)
+				/ getPointsInBoundingBox(pattern.points, allPoints, dimIndex).length
 				* getAxisParallelism(pattern.vectors, dimIndex);
 	}
 	
@@ -78,9 +85,15 @@ export module HEURISTICS {
 	}
 	
 	//1 if all vectors are parallel to the axis of the given dimension, 0 otherwise
-	export function getAxisParallelism(vectors: number[][], dimIndex: number) {
+	export function getAxisStrictParallelism(vectors: number[][], dimIndex: number) {
 		return _.reduce(vectors.map(v =>
 			v.every((d,i) => i == dimIndex || d == 0) ? 1 : 0), _.multiply);
+	}
+	
+	//proportion of vectors that are parallel to the axis of the given dimension
+	export function getAxisParallelism(vectors: number[][], dimIndex: number) {
+		return _.mean(vectors.map(v =>
+			v.every((d,i) => i == dimIndex || d == 0) ? 1 : 0));
 	}
 	
 	//1 if not all vectors are parallel to the axis of the given dimension, 0 otherwise
