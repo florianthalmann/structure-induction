@@ -110,6 +110,7 @@ function heuristicToSymbol(heuristic: CosiatecHeuristic) {
     : str === HEURISTICS.SIZE_AND_1D_COMPACTNESS_AXIS(0).toString() ? "a0"
     : str === HEURISTICS.SIZE_AND_1D_COMPACTNESS_AXIS2(0).toString() ? "at0"
     : str === HEURISTICS.SIZE_AND_1D_COMPACTNESS_NOAXIS(0).toString() ? "n0"
+    : str === HEURISTICS.SIZE_AND_COMPACTNESS.toString() ? "sm"
     : str === HEURISTICS.COMPACTNESS.toString() ? "m"
     : str === HEURISTICS.COVERAGE.toString() ? "v" : null;
   if (name != null) {
