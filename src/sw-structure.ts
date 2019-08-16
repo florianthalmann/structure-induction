@@ -2,7 +2,8 @@ import * as _ from 'lodash';
 import * as math from 'mathjs';
 import * as fs from 'fs';
 import { indexOfMax } from 'arrayutils';
-import { StructureResult } from './structure';
+import { StructureResult, CacheableStructureOptions } from './structure';
+import { loadOrPerformAndCache } from './util';
 import { SmithWaterman, SmithWatermanResult, TRACES } from './smith-waterman';
 
 export interface IterativeSmithWatermanResult extends StructureResult {
@@ -11,32 +12,40 @@ export interface IterativeSmithWatermanResult extends StructureResult {
   segmentMatrix: number[][],
 }
 
-export interface SmithWatermanOptions {
+export interface SmithWatermanOptions extends CacheableStructureOptions {
   iterative: boolean,
-  similarityThreshold?: number,
   maxThreshold: number,
   endThreshold: number,
   minSegmentLength: number,
+  similarityThreshold?: number,
   onlyDiagonals?: boolean,
-  patternIndices?: number[],
-  cacheFile?: string
+  cacheDir?: string
+}
+
+export function getSWOptionsString(options: SmithWatermanOptions) {
+  return (options.iterative ? 't' : '')
+    +'_'+ options.maxThreshold
+    +'_'+ options.endThreshold
+    +'_'+ options.minSegmentLength
+    +'_'+ (options.similarityThreshold != null ? options.similarityThreshold : '')
+    +'_'+ (options.onlyDiagonals ? 't' : '')
 }
 
 /**
  * relevant options are: iterative, similarityThreshold, maxThreshold, endThreshold, minSegmentLength, patternIndices
  */
 export function getSmithWatermanOccurrences(points: number[][], options: SmithWatermanOptions): IterativeSmithWatermanResult {
+  const file = 'sw_'+getSWOptionsString(options)+'.json';
+  return loadOrPerformAndCache(file,
+    () => getSmithWatermanOccurrences2(points, options), options);
+}
+
+function getSmithWatermanOccurrences2(points: number[][], options: SmithWatermanOptions) {
   let result: IterativeSmithWatermanResult = {points: points, patterns:[], matrices:[], segmentMatrix:[]};
   let matrices = getAdjustedSWMatrices(points, options.similarityThreshold, result);
   var max: number, i: number, j: number;
   [i, j, max] = getIJAndMax(matrices.scoreMatrix);
   var allSelectedPoints: number[][] = [];
-  
-  if (options.cacheFile) {
-    fs.writeFileSync(options.cacheFile, JSON.stringify(matrices.scoreMatrix));
-  }
-  
-  //console.log(points)
 
   while (max > options.maxThreshold) {
     let currentPoints = getAlignment(matrices, i, j, options.endThreshold, options.onlyDiagonals);
@@ -59,10 +68,6 @@ export function getSmithWatermanOccurrences(points: number[][], options: SmithWa
       }
     }
     [i, j, max] = getIJAndMax(matrices.scoreMatrix);
-  }
-  //filter out requested segments (via patternIndices)
-  if (options.patternIndices) {
-    result.patterns = result.patterns.filter((s,i) => options.patternIndices.indexOf(i) >= 0);
   }
   result.segmentMatrix = createPointMatrix(allSelectedPoints, points.length);
   return result;

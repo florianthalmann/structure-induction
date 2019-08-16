@@ -21,12 +21,10 @@ export interface StructureResult {
   patterns: Pattern[]
 }
 
-export interface StructureOptions extends OpsiatecOptions {
-  quantizerFunctions: ArrayMap[]
-}
-
-export interface StructureSWOptions extends SmithWatermanOptions {
-  quantizerFunctions: ArrayMap[]
+export interface CacheableStructureOptions {
+  quantizerFunctions: ArrayMap[],
+  cacheDir?: string,
+  loggingLevel?: number
 }
 
 interface CosiatecIndexResult {
@@ -35,12 +33,8 @@ interface CosiatecIndexResult {
   numOptimizedPatterns: number
 }
 
-export interface StructureResults {
-  
-}
-
 //returns patterns of indices in the original point sequence
-export function getCosiatecIndexOccurrences(points: number[][], options: StructureOptions): CosiatecIndexResult {
+export function getCosiatecIndexOccurrences(points: number[][], options: OpsiatecOptions): CosiatecIndexResult {
   const quantizedPoints = getQuantizedPoints(points, options.quantizerFunctions);
   //get the indices of the points involved
   const result = opsiatec(quantizedPoints, options);
@@ -55,20 +49,20 @@ export function getCosiatecIndexOccurrences(points: number[][], options: Structu
 }
 
 //returns occurrences of patterns in the original point sequence
-export function getCosiatecOccurrences(points: number[][], options: StructureOptions) {
+export function getCosiatecOccurrences(points: number[][], options: OpsiatecOptions) {
   return getCosiatec(points, options).patterns.map(p => p.occurrences);
 }
 
-export function getCosiatec(points: number[][], options: StructureOptions) {
+export function getCosiatec(points: number[][], options: OpsiatecOptions) {
   return opsiatec(getQuantizedPoints(points, options.quantizerFunctions), options);
 }
 
-export function getSiatecOccurrences(points: number[][], options: StructureOptions) {
+export function getSiatecOccurrences(points: number[][], options: OpsiatecOptions) {
   return getSiatec(getQuantizedPoints(points, options.quantizerFunctions), options)
     .patterns.map(p => p.occurrences);
 }
 
-export function getSmithWaterman(points: number[][], options: StructureSWOptions) {
+export function getSmithWaterman(points: number[][], options: SmithWatermanOptions) {
   /*let points = quantizedPoints.map(p => p.slice(0,3));
   return new SmithWaterman(null).run(points, points)[0];*/
   return getSmithWatermanOccurrences(getQuantizedPoints(points, options.quantizerFunctions), options);
@@ -80,7 +74,7 @@ function getQuantizedPoints(points: number[][], quantizerFuncs: ArrayMap[]) {
   return quantizedPoints;
 }
 
-export function getStructure(points: number[][], options: StructureOptions, minPatternLength = 12) {
+export function getStructure(points: number[][], options: OpsiatecOptions, minPatternLength = 12) {
   const quantizedPoints = getQuantizedPoints(points, options.quantizerFunctions);
   let result = opsiatec(quantizedPoints, options);
   let occurrences =  result.patterns.map(p => p.occurrences);
