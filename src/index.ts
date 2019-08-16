@@ -1,4 +1,5 @@
-export { StructureInducer, StructureOptions, IterativeSmithWatermanResult } from './structure';
+export { StructureOptions, StructureSWOptions, StructureResult, getCosiatec, getCosiatecIndexOccurrences, getSmithWaterman, getStructure } from './structure';
+export { IterativeSmithWatermanResult } from './sw-structure';
 export { Hierarchizer, Segmentation } from './hierarchizer';
 export { Similarity } from './similarity';
 export { Quantizer, ArrayMap, QUANT_FUNCS } from './quantizer';

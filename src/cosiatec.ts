@@ -1,6 +1,7 @@
 import * as _ from 'lodash'
 import { indexOfMax, compareArrays } from 'arrayutils';
-import { siatec, SiatecResult, SiatecPattern, Point } from './siatec';
+import { Pattern, Point } from './structure';
+import { siatec, SiatecResult } from './siatec';
 import { HEURISTICS, CosiatecHeuristic } from './heuristics';
 import { toOrderedPointString } from './util';
 
@@ -31,7 +32,7 @@ export function cosiatec(points: Point[], options: CosiatecOptions = {}, siatecR
  * overlapping true: jamie's cosiatec: performs sia only once, returns the best patterns necessary to cover all points
  * numPatterns defined: returns the n best overlapping cosiatec patterns, plus more if n larger than the number of cosiatec patterns
  */
-function cosiatecLoop(points: Point[], options: CosiatecOptions, patterns?: SiatecPattern[]): CosiatecResult {
+function cosiatecLoop(points: Point[], options: CosiatecOptions, patterns?: Pattern[]): CosiatecResult {
   const result: CosiatecResult = {points: points, patterns: [], scores: [], minPatternLength: options.minPatternLength };
   let remainingPoints = points;
   //IN NON-OVERLAPPING THERE IS NO OPTIMIZATION SO FAR!!!!
@@ -88,7 +89,7 @@ function cosiatecLoop(points: Point[], options: CosiatecOptions, patterns?: Siat
 }
 
 /** returns the complement of the pattern in points */
-function getComplement(pattern: SiatecPattern, points: Point[]) {
+function getComplement(pattern: Pattern, points: Point[]) {
   const involvedPoints = new Set(_.flatten<number[]>(pattern.occurrences)
     .map(p => JSON.stringify(p)));
   return points.map(p => JSON.stringify(p))
@@ -101,7 +102,7 @@ function getSortedCloneWithoutDupes<T>(array: T[]): T[] {
   return clone;
 }
 
-function logPointsAndPatterns(points: Point[], patterns: SiatecPattern[]) {
+function logPointsAndPatterns(points: Point[], patterns: Pattern[]) {
   console.log("remaining:", points.length,
     "patterns:", patterns.length,
     "max length:", _.max(patterns.map(p => p.points.length)));

@@ -1,5 +1,5 @@
 import * as _ from 'lodash';
-import { Point, Occurrence } from './siatec';
+import { Point, Occurrence } from './structure';
 import { compareArrays } from 'arrayutils';
 
 export function toOrderedPointString(points: number[][]): string {

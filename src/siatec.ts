@@ -1,21 +1,9 @@
 import * as _ from 'lodash';
 import { intersectSortedArrays, mergeSortedArrays } from 'arrayutils';
 import { toOrderedPointString } from './util';
+import { StructureResult, Point, PointSet, Vector, Occurrence } from './structure';
 
-export type Point = number[];
-export type Pattern = Point[];
-export type Vector = number[];
-export type Occurrence = Point[];
-
-export interface SiatecPattern {
-  points: Pattern,
-  vectors: Vector[],
-  occurrences: Occurrence[]
-}
-
-export interface SiatecResult {
-  points: Point[],
-  patterns: SiatecPattern[],
+export interface SiatecResult extends StructureResult {
   minPatternLength: number
 }
 
@@ -35,7 +23,7 @@ export function siatec(points: number[][], minPatternLength = 0, removeRedundant
   for (let i = 0; i < patterns.length; i+=1000) {
     occs.push(toOccs(patterns.slice(i, i+1000), vectors));
   }
-  let occurrences = new Map<Pattern,Occurrence[]>(_.zip(patterns, _.flatten(occs)));
+  let occurrences = new Map<PointSet,Occurrence[]>(_.zip(patterns, _.flatten(occs)));
   
   //remove redundant
   if (removeRedundant) {
@@ -62,15 +50,15 @@ export function siatec(points: number[][], minPatternLength = 0, removeRedundant
   };
 }
 
-function toOccs(patterns: Pattern[], vectors: Map<Pattern, Vector[]>) {
+function toOccs(patterns: PointSet[], vectors: Map<PointSet, Vector[]>) {
   return patterns.map(p => vectors.get(p).map(v =>
     p.map(point => point.map((p,k) => p + v[k]))));
 }
 
-function getVectorMap(points: Point[], patterns: Pattern[], vectorTable: [Vector, Point][][]) {
+function getVectorMap(points: Point[], patterns: PointSet[], vectorTable: [Vector, Point][][]) {
   const vectors = calculateSiatecOccurrences(points, patterns, vectorTable)
     .map(i => i.map(v => v.map(e => _.round(e,8)))); //eliminate float errors
-  return new Map<Pattern, Vector[]>(_.zip(patterns, vectors));
+  return new Map<PointSet, Vector[]>(_.zip(patterns, vectors));
 }
 
 function getVectorTable(points: Point[]): [Vector, Point][][] {
@@ -79,7 +67,7 @@ function getVectorTable(points: Point[]): [Vector, Point][][] {
 }
 
 //returns a list with the sia patterns detected for the given points
-function calculateSiaPatterns(vectorTable: [Vector, Point][][]): Pattern[] {
+function calculateSiaPatterns(vectorTable: [Vector, Point][][]): PointSet[] {
   //get all the vectors below the diagonal of the translation matrix
   var halfTable = vectorTable.map((col,i) => col.slice(i+1));
   //transform into a sorted list by merging the table's columns
@@ -92,12 +80,12 @@ function calculateSiaPatterns(vectorTable: [Vector, Point][][]): Pattern[] {
 }
 
 //returns a list with the
-function calculateSiatecOccurrences(points: Point[], patterns: Pattern[], vectorTable: [Vector, Point][][]): Vector[][]  {
+function calculateSiatecOccurrences(points: Point[], pointSets: PointSet[], vectorTable: [Vector, Point][][]): Vector[][]  {
   var vectorMap: Map<string,number> = new Map();
   points.forEach((v,i) => vectorMap.set(JSON.stringify(v),i));
   //get rid of points of origin in vector table
   var fullTable: Vector[][] = vectorTable.map(col => col.map(row => row[0]));
-  var translations = patterns.map(pat => pat.map(point => fullTable[vectorMap.get(JSON.stringify(point))]));
+  var translations = pointSets.map(pat => pat.map(point => fullTable[vectorMap.get(JSON.stringify(point))]));
   return translations.map(occ => getIntersection(occ));
 }
 

@@ -1,7 +1,8 @@
 import * as _ from 'lodash';
 import * as fs from 'fs';
 import { execSync } from 'child_process';
-import { siatec, SiatecResult, Point } from './siatec';
+import { Point } from './structure';
+import { siatec, SiatecResult } from './siatec';
 import { cosiatec, CosiatecResult, CosiatecOptions } from './cosiatec';
 import { CosiatecHeuristic, HEURISTICS } from './heuristics';
 import { OPTIMIZATION, minLength, minimize, divide, partition } from './optimizer';

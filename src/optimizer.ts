@@ -1,6 +1,7 @@
 import * as _ from 'lodash';
 import { indexOfMax, compareArrays } from 'arrayutils';
-import { SiatecResult, SiatecPattern, Point, Vector } from './siatec';
+import { Pattern, Point, Vector } from './structure';
+import { SiatecResult } from './siatec';
 import { CosiatecHeuristic } from './heuristics';
 
 export enum OPTIMIZATION {
@@ -24,25 +25,25 @@ export function minimize(input: SiatecResult, heuristic: CosiatecHeuristic, dime
 }
 
 export function divide(input: SiatecResult, heuristic: CosiatecHeuristic, dimension: number, minLength?: number): SiatecResult {
-  let patterns = _.flatten<SiatecPattern>(input.patterns.map(p =>
+  let patterns = _.flatten<Pattern>(input.patterns.map(p =>
     dividePattern(p, input.points, dimension, heuristic, minLength)));
   patterns = unitePatterns(patterns).map(p => newPattern(p.points, p.vectors)); //update occurrences
   return { points: input.points, patterns: patterns, minPatternLength: minLength };
 }
 
 export function partition(input: SiatecResult, heuristic: CosiatecHeuristic, dimension: number, minLength?: number): SiatecResult {
-  let patterns = _.flatten<SiatecPattern>(input.patterns.map(p =>
+  let patterns = _.flatten<Pattern>(input.patterns.map(p =>
     partitionPattern(p, input.points, dimension, heuristic, minLength)));
   patterns = unitePatterns(patterns).map(p => newPattern(p.points, p.vectors)); //update occurrences
   return { points: input.points, patterns: patterns, minPatternLength: minLength };
 }
 
-function minimizePattern(pattern: SiatecPattern, allPoints: Point[], dimension: number, heuristic: CosiatecHeuristic, minLength = 1): SiatecPattern {
+function minimizePattern(pattern: Pattern, allPoints: Point[], dimension: number, heuristic: CosiatecHeuristic, minLength = 1): Pattern {
   if (pattern.points.length > minLength) {
     const points = cloneAndSortPoints(pattern, dimension);
     if (points.length > minLength) {
       //all possible connected subpatterns
-      const subPatterns = _.flatten<SiatecPattern>(points.map((_,i) =>
+      const subPatterns = _.flatten<Pattern>(points.map((_,i) =>
         points.slice(i).map((_,j) => points.length-j - i >= minLength ? //check min length
             newPattern(points.slice(i, points.length-j), pattern.vectors) : null
         )))
@@ -55,12 +56,12 @@ function minimizePattern(pattern: SiatecPattern, allPoints: Point[], dimension: 
   return pattern;
 }
 
-export function dividePattern(pattern: SiatecPattern, allPoints: Point[], dimension: number, heuristic: CosiatecHeuristic, minLength = 1): SiatecPattern[] {
+export function dividePattern(pattern: Pattern, allPoints: Point[], dimension: number, heuristic: CosiatecHeuristic, minLength = 1): Pattern[] {
   const cloned = newPattern(cloneAndSortPoints(pattern, dimension), pattern.vectors);
   return recursiveDividePattern(cloned, allPoints, dimension, heuristic, minLength);
 } 
 
-function recursiveDividePattern(pattern: SiatecPattern, allPoints: Point[], dimension: number, heuristic: CosiatecHeuristic, minLength: number): SiatecPattern[] {
+function recursiveDividePattern(pattern: Pattern, allPoints: Point[], dimension: number, heuristic: CosiatecHeuristic, minLength: number): Pattern[] {
   const currentHeuristicValue = heuristic(pattern, allPoints);
   if (pattern.points.length > minLength) {
     const patternPairs = pattern.points.map((_,i) =>
@@ -84,7 +85,7 @@ function recursiveDividePattern(pattern: SiatecPattern, allPoints: Point[], dime
 }
 
 /** partitions the given pattern along the given dimension */
-export function partitionPattern(pattern: SiatecPattern, allPoints: Point[], dimension: number, heuristic: CosiatecHeuristic, minLength = 1): SiatecPattern[] {
+export function partitionPattern(pattern: Pattern, allPoints: Point[], dimension: number, heuristic: CosiatecHeuristic, minLength = 1): Pattern[] {
   const points = cloneAndSortPoints(pattern, dimension);
   if (pattern.vectors.length > 1 && points.length > minLength) {
     const vals = pattern.vectors.map(v => v[dimension]);
@@ -123,14 +124,14 @@ export function partitionPattern(pattern: SiatecPattern, allPoints: Point[], dim
   return [pattern];
 }
 
-export function unitePatterns(patterns: SiatecPattern[]): SiatecPattern[] {
+export function unitePatterns(patterns: Pattern[]): Pattern[] {
   const norms = patterns.map(p => toNormalForm(p.points));
   const grouped = _.groupBy(norms, n => JSON.stringify(n));
   return _.values(grouped).map(g => combine(g.map(n =>
       patterns[norms.indexOf(n)])));
 }
 
-function combine(patterns: SiatecPattern[]): SiatecPattern {
+function combine(patterns: Pattern[]): Pattern {
   while (patterns.length > 1) {
     const distance = _.zipWith(patterns[1].points[0],
       patterns[0].points[0], _.subtract);
@@ -157,13 +158,13 @@ function toNormalForm(pattern: number[][]) {
   return normalForm.map(p => _.zipWith(p, offset, _.subtract));
 }
 
-function cloneAndSortPoints(pattern: SiatecPattern, dimension: number): Point[] {
+function cloneAndSortPoints(pattern: Pattern, dimension: number): Point[] {
   const points = pattern.points.map(p => p.slice()); //clone
   points.sort((a,b) => a[dimension] - b[dimension]);
   return points;
 }
 
-function newPattern(points: Point[], vectors: Vector[]): SiatecPattern {
+function newPattern(points: Point[], vectors: Vector[]): Pattern {
   return {
     points: points,
     vectors: vectors,

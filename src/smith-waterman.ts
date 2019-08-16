@@ -1,4 +1,3 @@
-import * as math from 'mathjs';
 import * as _ from 'lodash';
 import { indexOfMax } from 'arrayutils';
 import { Similarity } from './similarity';
@@ -19,10 +18,10 @@ export class SmithWaterman {
 
   private matchScore = 3;
   private mismatchScore = -2;
-  private gapScore = -1;
+  private gapScore = -5;
 
   //if similarity threshold is null, equality is enforced
-  constructor(private similarityTreshold: number) {}
+  constructor(private similarityTreshold = null) {}
 
   run(seq1: number[][], seq2: number[][], ignoredPoints?: number[][]): SmithWatermanResult {
     if (!ignoredPoints) {
