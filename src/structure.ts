@@ -68,6 +68,12 @@ export function getSmithWaterman(points: number[][], options: SmithWatermanOptio
   return getSmithWatermanOccurrences(getQuantizedPoints(points, options.quantizerFunctions), options);
 }
 
+export function getDualSmithWaterman(points1: number[][], points2: number[][], options: SmithWatermanOptions) {
+  points1 = getQuantizedPoints(points1, options.quantizerFunctions);
+  points2 = getQuantizedPoints(points1, options.quantizerFunctions);
+  return getSmithWatermanOccurrences(points1, options, points2);
+}
+
 function getQuantizedPoints(points: number[][], quantizerFuncs: ArrayMap[]) {
   const quantizer = new Quantizer(quantizerFuncs);
   const quantizedPoints = quantizer.getQuantizedPoints(points);

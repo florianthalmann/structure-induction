@@ -10,6 +10,7 @@ export interface IterativeSmithWatermanResult extends StructureResult {
   //patterns: number[][][],
   matrices: SmithWatermanResult[],
   segmentMatrix: number[][],
+  points2?: number[][]
 }
 
 export interface SmithWatermanOptions extends CacheableStructureOptions {
@@ -31,21 +32,18 @@ export function getSWOptionsString(options: SmithWatermanOptions) {
     +'_'+ (options.onlyDiagonals ? 't' : '')
 }
 
-/**
- * relevant options are: iterative, similarityThreshold, maxThreshold, endThreshold, minSegmentLength, patternIndices
- */
-export function getSmithWatermanOccurrences(points: number[][], options: SmithWatermanOptions): IterativeSmithWatermanResult {
+export function getSmithWatermanOccurrences(points: number[][], options: SmithWatermanOptions, points2?: number[][]): IterativeSmithWatermanResult {
   const file = 'sw_'+getSWOptionsString(options)+'.json';
   return loadOrPerformAndCache(file,
-    () => getSmithWatermanOccurrences2(points, options), options);
+    () => getSmithWatermanOccurrences2(points, options, points2), options);
 }
 
-function getSmithWatermanOccurrences2(points: number[][], options: SmithWatermanOptions) {
-  let result: IterativeSmithWatermanResult = {points: points, patterns:[], matrices:[], segmentMatrix:[]};
-  let matrices = getAdjustedSWMatrices(points, options.similarityThreshold, result);
+function getSmithWatermanOccurrences2(points: number[][], options: SmithWatermanOptions, points2?: number[][]) {
+  let result: IterativeSmithWatermanResult = {points: points, points2: points2, patterns:[], matrices:[], segmentMatrix:[]};
+  var allSelectedPoints: number[][] = [];
+  let matrices = getAdjustedSWMatrices(points, points2, options.similarityThreshold, result, allSelectedPoints);
   var max: number, i: number, j: number;
   [i, j, max] = getIJAndMax(matrices.scoreMatrix);
-  var allSelectedPoints: number[][] = [];
 
   while (max > options.maxThreshold) {
     let currentPoints = getAlignment(matrices, i, j, options.endThreshold, options.onlyDiagonals);
@@ -64,7 +62,7 @@ function getSmithWatermanOccurrences2(points: number[][], options: SmithWaterman
       //console.log(JSON.stringify(segmentPoints))
       allSelectedPoints = allSelectedPoints.concat(currentPoints);
       if (options.iterative) {
-        matrices = getAdjustedSWMatrices(points, options.similarityThreshold, result, allSelectedPoints);
+        matrices = getAdjustedSWMatrices(points, points2, options.similarityThreshold, result, allSelectedPoints);
       }
     }
     [i, j, max] = getIJAndMax(matrices.scoreMatrix);
@@ -73,11 +71,12 @@ function getSmithWatermanOccurrences2(points: number[][], options: SmithWaterman
   return result;
 }
 
-function getAdjustedSWMatrices(points: number[][], similarityThreshold: number, result: IterativeSmithWatermanResult, ignoredPoints?) {
+function getAdjustedSWMatrices(points: number[][], points2: number[][], similarityThreshold: number, result: IterativeSmithWatermanResult, ignoredPoints: number[][]) {
   //TODO MAKE SURE NO SLICING NEEDS TO HAPPEN (JUST RUN WITH COLLAPSED TEMPORAL FEATURES??)
   //points = points.map(p => p.slice(0,p.length-1));
   points = points.map(p => p.slice(1));
-  let matrices = new SmithWaterman(similarityThreshold).run(points, points, ignoredPoints);
+  let matrices = new SmithWaterman(similarityThreshold)
+    .run(points, points2 ? points2 : points, ignoredPoints);
   result.matrices.push(_.clone(matrices));
   //make lower matrix 0
   matrices.scoreMatrix = matrices.scoreMatrix.map((r,i) => r.map((c,j) => j < i ? 0 : c));
