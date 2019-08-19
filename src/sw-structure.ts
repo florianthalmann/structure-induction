@@ -39,7 +39,8 @@ export function getSmithWatermanOccurrences(points: number[][], options: SmithWa
 }
 
 function getSmithWatermanOccurrences2(points: number[][], options: SmithWatermanOptions, points2?: number[][]) {
-  let result: IterativeSmithWatermanResult = {points: points, points2: points2, patterns:[], matrices:[], segmentMatrix:[]};
+  let result: IterativeSmithWatermanResult = {points: points, points2: points2 || undefined, patterns:[], matrices:[], segmentMatrix:[]};
+  points2 = points2 || points;
   var allSelectedPoints: number[][] = [];
   let matrices = getAdjustedSWMatrices(points, points2, options.similarityThreshold, result, allSelectedPoints);
   var max: number, i: number, j: number;
@@ -54,11 +55,11 @@ function getSmithWatermanOccurrences2(points: number[][], options: SmithWaterman
       let dist = currentSegments[1][0]-currentSegments[0][0];
       //console.log("current max: " + max, "current dist: " + dist, "\ncurrent points: " + JSON.stringify(currentPoints), "\ncurrent segments: " + JSON.stringify(currentSegments));
       const vector = points[0].map((_,i) => i == 0 ? dist : 0);
-      const segmentPoints = currentSegments.map(s => s.map(i => points[i]));
+      const segmentPoints = currentSegments.map((s,i) => s.map(j => [points,points2][i][j]));
       //TODO ONLY ADD IF DIFFERENCE FROM EXISTING ONES SMALL ENOUGH!!!!!
       result.patterns.push({points: segmentPoints[0], vectors: [vector], occurrences: segmentPoints});
-      //add reflections at diagonal
-      currentPoints = currentPoints.concat(currentPoints.map(p => _.reverse(_.clone(p))));
+      //add reflections at diagonal NO!!
+      //currentPoints = currentPoints.concat(currentPoints.map(p => _.reverse(_.clone(p))));
       //console.log(JSON.stringify(segmentPoints))
       allSelectedPoints = allSelectedPoints.concat(currentPoints);
       if (options.iterative) {
@@ -75,7 +76,7 @@ function getAdjustedSWMatrices(points: number[][], points2: number[][], similari
   //TODO MAKE SURE NO SLICING NEEDS TO HAPPEN (JUST RUN WITH COLLAPSED TEMPORAL FEATURES??)
   //points = points.map(p => p.slice(0,p.length-1));
   points = points.map(p => p.slice(1));
-  points2 = points2 ? points2.map(p => p.slice(1)) : points
+  points2 = points2.map(p => p.slice(1));
   let matrices = new SmithWaterman(similarityThreshold)
     .run(points, points2, ignoredPoints);
   result.matrices.push(_.clone(matrices));
@@ -89,19 +90,20 @@ function getAdjustedSWMatrices(points: number[][], points2: number[][], similari
 }
 
 function createPointMatrix(selectedPoints: number[][], points: number[][], points2: number[][]): number[][] {
-  const length2 = points2 ? Math.max(points.length, points2.length) : points.length;
-  let row = _.fill(new Array(length2), 0);
-  let matrix = row.map(m => _.fill(new Array(points.length), 0));
+  const matrix = getEmptyMatrix(points, points2);
   selectedPoints.forEach(p => matrix[p[0]][p[1]] = 1);
   return matrix;
 }
 
-function createSegmentMatrix(segments: number[][][]): number[][] {
-  let maxIndex = math.max(segments);
-  let row = _.fill(new Array(maxIndex+1), 0);
-  let matrix = row.map(m => _.fill(new Array(maxIndex+1), 0));
+function createSegmentMatrix(segments: number[][][], points: number[][], points2: number[][]): number[][] {
+  const matrix = getEmptyMatrix(points, points2);
   segments.forEach(s => s[0].forEach((s0,i) => matrix[s0][s[1][i]] = 1));
   return matrix;
+}
+
+function getEmptyMatrix(points: number[][], points2: number[][]) {
+  let row = _.fill(new Array(points.length), 0);
+  return row.map(m => _.fill(new Array(points2.length), 0));
 }
 
 function getAlignment(matrices: SmithWatermanResult, i: number, j: number, endThreshold?: number, onlyDiagonals?: boolean): number[][] {
