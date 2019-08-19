@@ -67,7 +67,7 @@ function getSmithWatermanOccurrences2(points: number[][], options: SmithWaterman
     }
     [i, j, max] = getIJAndMax(matrices.scoreMatrix);
   }
-  result.segmentMatrix = createPointMatrix(allSelectedPoints, points.length);
+  result.segmentMatrix = createPointMatrix(allSelectedPoints, points, points2);
   return result;
 }
 
@@ -75,17 +75,23 @@ function getAdjustedSWMatrices(points: number[][], points2: number[][], similari
   //TODO MAKE SURE NO SLICING NEEDS TO HAPPEN (JUST RUN WITH COLLAPSED TEMPORAL FEATURES??)
   //points = points.map(p => p.slice(0,p.length-1));
   points = points.map(p => p.slice(1));
+  points2 = points2 ? points2.map(p => p.slice(1)) : points
   let matrices = new SmithWaterman(similarityThreshold)
-    .run(points, points2 ? points2 : points, ignoredPoints);
+    .run(points, points2, ignoredPoints);
   result.matrices.push(_.clone(matrices));
-  //make lower matrix 0
-  matrices.scoreMatrix = matrices.scoreMatrix.map((r,i) => r.map((c,j) => j < i ? 0 : c));
+  if (points.length <= points2.length) {
+    //make lower matrix 0
+    matrices.scoreMatrix = matrices.scoreMatrix.map((r,i) => r.map((c,j) => j < i ? 0 : c));
+  } else {
+    matrices.scoreMatrix = matrices.scoreMatrix.map((r,i) => r.map((c,j) => j > i ? 0 : c));
+  }
   return matrices;
 }
 
-function createPointMatrix(selectedPoints: number[][], totalPoints: number): number[][] {
-  let row = _.fill(new Array(totalPoints), 0);
-  let matrix = row.map(m => _.fill(new Array(totalPoints), 0));
+function createPointMatrix(selectedPoints: number[][], points: number[][], points2: number[][]): number[][] {
+  const length2 = points2 ? Math.max(points.length, points2.length) : points.length;
+  let row = _.fill(new Array(length2), 0);
+  let matrix = row.map(m => _.fill(new Array(points.length), 0));
   selectedPoints.forEach(p => matrix[p[0]][p[1]] = 1);
   return matrix;
 }

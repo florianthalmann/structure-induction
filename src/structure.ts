@@ -70,7 +70,7 @@ export function getSmithWaterman(points: number[][], options: SmithWatermanOptio
 
 export function getDualSmithWaterman(points1: number[][], points2: number[][], options: SmithWatermanOptions) {
   points1 = getQuantizedPoints(points1, options.quantizerFunctions);
-  points2 = getQuantizedPoints(points1, options.quantizerFunctions);
+  points2 = getQuantizedPoints(points2, options.quantizerFunctions);
   return getSmithWatermanOccurrences(points1, options, points2);
 }
 
