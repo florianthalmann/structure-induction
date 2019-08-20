@@ -20,6 +20,7 @@ export interface SmithWatermanOptions extends CacheableStructureOptions {
   minSegmentLength: number,
   similarityThreshold?: number,
   onlyDiagonals?: boolean,
+  fillGaps?: boolean,
   cacheDir?: string
 }
 
@@ -47,7 +48,7 @@ function getSmithWatermanOccurrences2(points: number[][], options: SmithWaterman
   [i, j, max] = getIJAndMax(matrices.scoreMatrix);
 
   while (max > options.maxThreshold) {
-    let currentPoints = getAlignment(matrices, i, j, options.endThreshold, options.onlyDiagonals);
+    let currentPoints = getAlignment(matrices, i, j, options);
     let currentSegments = toSegments(currentPoints);
 
     //only add if longer than minSegmentLength
@@ -79,13 +80,18 @@ function getAdjustedSWMatrices(points: number[][], points2: number[][], similari
   points2 = points2.map(p => p.slice(1));
   let matrices = new SmithWaterman(similarityThreshold)
     .run(points, points2, ignoredPoints);
+  if (points === points2) {
+    //make lower matrix 0
+    matrices.scoreMatrix = matrices.scoreMatrix.map((r,i) => r.map((c,j) => j < i ? 0 : c));
+  }
   result.matrices.push(_.clone(matrices));
-  if (points.length <= points2.length) {
+  
+  /*if (points.length <= points2.length) {
     //make lower matrix 0
     matrices.scoreMatrix = matrices.scoreMatrix.map((r,i) => r.map((c,j) => j < i ? 0 : c));
   } else {
     matrices.scoreMatrix = matrices.scoreMatrix.map((r,i) => r.map((c,j) => j > i ? 0 : c));
-  }
+  }*/
   return matrices;
 }
 
@@ -106,27 +112,28 @@ function getEmptyMatrix(points: number[][], points2: number[][]) {
   return row.map(m => _.fill(new Array(points2.length), 0));
 }
 
-function getAlignment(matrices: SmithWatermanResult, i: number, j: number, endThreshold?: number, onlyDiagonals?: boolean): number[][] {
+function getAlignment(matrices: SmithWatermanResult, i: number, j: number, options: SmithWatermanOptions): number[][] {
   //find ij trace in matrix
   let currentValue = matrices.scoreMatrix[i][j];
   let currentTrace = matrices.traceMatrix[i][j];
   let pointsOnAlignment = [[i,j]];
-  while (currentValue > endThreshold) {
+  while (currentValue > options.endThreshold) {
     //reset current location in matrix
     //TODO DONT NEED DO THIS!!!!!
     matrices.scoreMatrix[i][j] = 0;//-= 3;
     if (currentTrace === TRACES.DIAGONAL) {
       [i,j] = [i-1,j-1];
-    } else if (currentTrace === TRACES.UP && !onlyDiagonals) {
+    } else if (currentTrace === TRACES.UP && !options.onlyDiagonals) {
       [i,j] = [i-1,j];
-    } else if (currentTrace === TRACES.LEFT && !onlyDiagonals) {
+    } else if (currentTrace === TRACES.LEFT && !options.onlyDiagonals) {
       [i,j] = [i,j-1];
     }
     if (matrices.scoreMatrix[i][j] !== currentValue) {//next alignment found
       currentValue = matrices.scoreMatrix[i][j];
       currentTrace = matrices.traceMatrix[i][j];
-      if (!onlyDiagonals //only add in strict diagonal version if it was a match
-          || (currentTrace == TRACES.DIAGONAL && currentValue > matrices.scoreMatrix[i-1][j-1])) {
+      if (!options.onlyDiagonals || (currentTrace == TRACES.DIAGONAL &&
+          //only add in strict diagonal version if it was a match or gaps are to be filled
+          (options.fillGaps || currentValue > matrices.scoreMatrix[i-1][j-1]))) {
         pointsOnAlignment.push([i,j]);
       }
     } else break;
