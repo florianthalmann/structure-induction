@@ -1,5 +1,5 @@
 export { StructureResult, CacheableStructureOptions, getStructure, getCosiatec,
-  getCosiatecIndexOccurrences, getSmithWaterman, getDualSmithWaterman } from './structure';
+  getCosiatecIndexOccurrences, getSmithWaterman, getDualSmithWaterman, Pattern } from './structure';
 export { IterativeSmithWatermanResult, SmithWatermanOptions } from './sw-structure';
 export { Hierarchizer, Segmentation } from './hierarchizer';
 export { Similarity } from './similarity';

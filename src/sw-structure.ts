@@ -1,6 +1,4 @@
 import * as _ from 'lodash';
-import * as math from 'mathjs';
-import * as fs from 'fs';
 import { indexOfMax } from 'arrayutils';
 import { StructureResult, CacheableStructureOptions } from './structure';
 import { loadOrPerformAndCache } from './util';
@@ -52,7 +50,7 @@ function getSmithWatermanOccurrences2(points: number[][], options: SmithWaterman
     let currentSegments = toSegments(currentPoints);
 
     //only add if longer than minSegmentLength
-    if (currentSegments[0].length > options.minSegmentLength && currentSegments[1].length > options.minSegmentLength) {
+    if (currentSegments.length > 0 && currentSegments[0].length > options.minSegmentLength && currentSegments[1].length > options.minSegmentLength) {
       let dist = currentSegments[1][0]-currentSegments[0][0];
       //console.log("current max: " + max, "current dist: " + dist, "\ncurrent points: " + JSON.stringify(currentPoints), "\ncurrent segments: " + JSON.stringify(currentSegments));
       const vector = points[0].map((_,i) => i == 0 ? dist : 0);
@@ -132,13 +130,18 @@ function getAlignment(matrices: SmithWatermanResult, i: number, j: number, optio
       currentValue = matrices.scoreMatrix[i][j];
       currentTrace = matrices.traceMatrix[i][j];
       if (!options.onlyDiagonals || (currentTrace == TRACES.DIAGONAL &&
-          //only add in strict diagonal version if it was a match or gaps are to be filled
-          (options.fillGaps || currentValue > matrices.scoreMatrix[i-1][j-1]))) {
+          //only add in strict diagonal version if it was a match
+          currentValue > matrices.scoreMatrix[i-1][j-1])) {
         pointsOnAlignment.push([i,j]);
       }
     } else break;
   }
-  return pointsOnAlignment;
+  if (options.onlyDiagonals && options.fillGaps) {
+    const f = _.first(pointsOnAlignment);
+    const l = _.last(pointsOnAlignment);
+    pointsOnAlignment = _.zip(_.range(f[0],l[0]), _.range(f[1],l[1]));
+  }
+  return _.sortBy(pointsOnAlignment);
 }
 
 function toSegments(alignmentPoints: number[][]) {
