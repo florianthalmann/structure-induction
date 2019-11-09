@@ -1,15 +1,16 @@
 import * as _ from 'lodash';
 import { indexOfMax } from 'arrayutils';
-import { StructureResult, CacheableStructureOptions } from './structure';
+import { StructureResult, MultiStructureResult, CacheableStructureOptions } from './structure';
 import { loadOrPerformAndCache } from './util';
 import { SmithWaterman, SmithWatermanResult, TRACES } from './smith-waterman';
 
 export interface IterativeSmithWatermanResult extends StructureResult {
-  //patterns: number[][][],
   matrices: SmithWatermanResult[],
-  segmentMatrix: number[][],
-  points2?: number[][]
+  segmentMatrix: number[][]
 }
+
+export interface MultiSmithWatermanResult extends MultiStructureResult,
+  IterativeSmithWatermanResult {}
 
 export interface SmithWatermanOptions extends CacheableStructureOptions {
   iterative: boolean,
@@ -31,14 +32,24 @@ export function getSWOptionsString(options: SmithWatermanOptions) {
     +'_'+ (options.onlyDiagonals ? 't' : '')
 }
 
-export function getSmithWatermanOccurrences(points: number[][], options: SmithWatermanOptions, points2?: number[][]): IterativeSmithWatermanResult {
+export function getMultiSWOccurrences(points: number[][], points2: number[][],
+    options: SmithWatermanOptions): MultiSmithWatermanResult {
   const file = 'sw_'+getSWOptionsString(options)+'.json';
-  return loadOrPerformAndCache(file,
-    () => getSmithWatermanOccurrences2(points, options, points2), options);
+  return Object.assign(loadOrPerformAndCache(file,
+    () => getSmithWatermanOccurrences2(points, options, points2), options),
+    {points2: points2});
 }
 
-function getSmithWatermanOccurrences2(points: number[][], options: SmithWatermanOptions, points2?: number[][]) {
-  let result: IterativeSmithWatermanResult = {points: points, points2: points2 || undefined, patterns:[], matrices:[], segmentMatrix:[]};
+export function getSmithWatermanOccurrences(points: number[][],
+    options: SmithWatermanOptions): IterativeSmithWatermanResult {
+  const file = 'sw_'+getSWOptionsString(options)+'.json';
+  return loadOrPerformAndCache(file,
+    () => getSmithWatermanOccurrences2(points, options), options);
+}
+
+function getSmithWatermanOccurrences2(points: number[][],
+    options: SmithWatermanOptions, points2?: number[][]) {
+  let result: IterativeSmithWatermanResult = {points: points, patterns:[], matrices:[], segmentMatrix:[]};
   points2 = points2 || points;
   var allSelectedPoints: number[][] = [];
   let matrices = getAdjustedSWMatrices(points, points2, options.similarityThreshold, result, allSelectedPoints);

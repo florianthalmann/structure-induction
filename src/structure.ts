@@ -1,8 +1,8 @@
 import * as _ from 'lodash'
 import * as math from 'mathjs'
 import { Quantizer, ArrayMap } from './quantizer'
-import { opsiatec, getSiatec, OpsiatecOptions } from './opsiatec'
-import { SmithWatermanOptions, getSmithWatermanOccurrences } from './sw-structure';
+import { opsiatec, getSiatec, OpsiatecOptions, OpsiatecResult } from './opsiatec'
+import { SmithWatermanOptions, getSmithWatermanOccurrences, getMultiSWOccurrences } from './sw-structure';
 import { pointsToIndices } from './util';
 
 export type Point = number[];
@@ -20,6 +20,12 @@ export interface StructureResult {
   points: Point[],
   patterns: Pattern[]
 }
+
+export interface MultiStructureResult extends StructureResult {
+  points2: Point[]
+}
+
+export interface MultiOpsiatecResult extends OpsiatecResult, MultiStructureResult {}
 
 export interface CacheableStructureOptions {
   quantizerFunctions: ArrayMap[],
@@ -49,12 +55,31 @@ export function getCosiatecIndexOccurrences(points: number[][], options: Opsiate
 }
 
 //returns occurrences of patterns in the original point sequence
-export function getCosiatecOccurrences(points: number[][], options: OpsiatecOptions) {
+export function getCosiatecOccurrences(points: Point[], options: OpsiatecOptions) {
   return getCosiatec(points, options).patterns.map(p => p.occurrences);
 }
 
-export function getCosiatec(points: number[][], options: OpsiatecOptions) {
+export function getCosiatec(points: Point[], options: OpsiatecOptions) {
   return opsiatec(getQuantizedPoints(points, options.quantizerFunctions), options);
+}
+
+export function getMultiCosiatec(points: Point[][], options: OpsiatecOptions): MultiOpsiatecResult {
+  const result = getCosiatec(_.flatten(points), options);
+  //only keep patterns from first set of points to second!
+  result.patterns = result.patterns.filter(p => p.vectors.some(v => Math.abs(v[0]) > points[0].length));
+  result.patterns.forEach(p => p.vectors = p.vectors.filter(v => Math.abs(v[0]) > points[0].length));
+  points = points.map(ps => result.points.splice(0, ps.length));
+  //move all points back to 0 (assuming an 'order' quantizing function was used)
+  const resetPoints = _.cloneDeep(points).map(ps => ps.map(p =>
+    p.map((c,i) => i == 0 ? c - ps[0][0] : c)));
+  const keys = _.flatten(points).map(p => JSON.stringify(p));
+  const values = _.flatten(resetPoints);
+  const pointMap = _.fromPairs(_.zip(keys, values));
+  result.patterns.forEach(p => {
+    p.points = p.points.map(p => pointMap[JSON.stringify(p)]);
+    p.occurrences = p.occurrences.map(o => o.map(p => pointMap[JSON.stringify(p)]));
+  });
+  return Object.assign(result, {points: resetPoints[0], points2: resetPoints[1]});
 }
 
 export function getSiatecOccurrences(points: number[][], options: OpsiatecOptions) {
@@ -71,7 +96,7 @@ export function getSmithWaterman(points: number[][], options: SmithWatermanOptio
 export function getDualSmithWaterman(points1: number[][], points2: number[][], options: SmithWatermanOptions) {
   points1 = getQuantizedPoints(points1, options.quantizerFunctions);
   points2 = getQuantizedPoints(points2, options.quantizerFunctions);
-  return getSmithWatermanOccurrences(points1, options, points2);
+  return getMultiSWOccurrences(points1, points2, options);
 }
 
 function getQuantizedPoints(points: number[][], quantizerFuncs: ArrayMap[]) {
