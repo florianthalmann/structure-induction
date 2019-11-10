@@ -65,10 +65,21 @@ export function getCosiatec(points: Point[], options: OpsiatecOptions) {
 
 export function getMultiCosiatec(points: Point[][], options: OpsiatecOptions): MultiOpsiatecResult {
   const result = getCosiatec(_.flatten(points), options);
-  //only keep patterns from first set of points to second!
-  result.patterns = result.patterns.filter(p => p.vectors.some(v => Math.abs(v[0]) > points[0].length));
-  result.patterns.forEach(p => p.vectors = p.vectors.filter(v => Math.abs(v[0]) > points[0].length));
   points = points.map(ps => result.points.splice(0, ps.length));
+  //only keep patterns from first set of points to second!
+  const points1 = points[0].map(p => JSON.stringify(p));
+  const points2 = points[1].map(p => JSON.stringify(p));
+  result.patterns.forEach(p => {
+    const occs1 = p.occurrences.map((o,i) =>
+      o.every(p => points1.indexOf(JSON.stringify(p)) >= 0) ? i : null).filter(i => i !== null);
+    const occs2 = p.occurrences.map((o,i) =>
+      o.every(p => points2.indexOf(JSON.stringify(p)) >= 0) ? i : null).filter(i => i !== null);
+    const occs = occs1.length && occs2.length ? [occs1[0], occs2[0]] : [];
+    p.occurrences = occs.map(i => p.occurrences[i]);
+    p.vectors = occs.map(i => p.vectors[i]);
+  });
+  result.patterns = result.patterns.filter(p => p.occurrences.length);
+  //console.log(JSON.stringify(result.patterns.map(p => p.vectors)))
   //move all points back to 0 (assuming an 'order' quantizing function was used)
   const resetPoints = _.cloneDeep(points).map(ps => ps.map(p =>
     p.map((c,i) => i == 0 ? c - ps[0][0] : c)));
