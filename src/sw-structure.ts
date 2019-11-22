@@ -13,7 +13,7 @@ export interface MultiSmithWatermanResult extends MultiStructureResult,
   IterativeSmithWatermanResult {}
 
 export interface SmithWatermanOptions extends CacheableStructureOptions {
-  iterative: boolean,
+  maxIterations: number,
   maxThreshold: number,
   endThreshold: number,
   minSegmentLength: number,
@@ -24,7 +24,7 @@ export interface SmithWatermanOptions extends CacheableStructureOptions {
 }
 
 export function getSWOptionsString(options: SmithWatermanOptions) {
-  return (options.iterative ? 't' : '')
+  return (options.maxIterations == 0 ? 't' : options.maxIterations)//t to be backwards-compatible with iterative save files
     +'_'+ options.maxThreshold
     +'_'+ options.endThreshold
     +'_'+ options.minSegmentLength
@@ -51,12 +51,15 @@ function getSmithWatermanOccurrences2(points: number[][],
     options: SmithWatermanOptions, points2?: number[][]) {
   let result: IterativeSmithWatermanResult = {points: points, patterns:[], matrices:[], segmentMatrix:[]};
   points2 = points2 || points;
-  var allSelectedPoints: number[][] = [];
-  let matrices = getAdjustedSWMatrices(points, points2, options.similarityThreshold, result, allSelectedPoints);
+  const selectedPoints: number[][] = [];
+  const checkedPoints = new Set<string>();
+  let matrices = getAdjustedSWMatrices(points, points2, options.similarityThreshold, result, checkedPoints);
   var max: number, i: number, j: number;
   [i, j, max] = getIJAndMax(matrices.scoreMatrix);
+  let iterations = 0;
 
-  while (max > options.maxThreshold) {
+  while (max > options.maxThreshold && (!options.maxIterations || iterations < options.maxIterations)) {
+    iterations++;
     let currentPoints = getAlignment(matrices, i, j, options);
     let currentSegments = toSegments(currentPoints);
 
@@ -68,21 +71,22 @@ function getSmithWatermanOccurrences2(points: number[][],
       const segmentPoints = currentSegments.map((s,i) => s.map(j => [points,points2][i][j]));
       //TODO ONLY ADD IF DIFFERENCE FROM EXISTING ONES SMALL ENOUGH!!!!!
       result.patterns.push({points: segmentPoints[0], vectors: [vector], occurrences: segmentPoints});
+      selectedPoints.push(...currentPoints);
       //add reflections at diagonal NO!!
       //currentPoints = currentPoints.concat(currentPoints.map(p => _.reverse(_.clone(p))));
       //console.log(JSON.stringify(segmentPoints))
-      allSelectedPoints = allSelectedPoints.concat(currentPoints);
-      if (options.iterative) {
-        matrices = getAdjustedSWMatrices(points, points2, options.similarityThreshold, result, allSelectedPoints);
-      }
     }
-    [i, j, max] = getIJAndMax(matrices.scoreMatrix);
+    currentPoints.forEach(p => checkedPoints.add(p.join(',')));
+    if (!options.maxIterations || iterations < options.maxIterations) {
+      matrices = getAdjustedSWMatrices(points, points2, options.similarityThreshold, result, checkedPoints);
+      [i, j, max] = getIJAndMax(matrices.scoreMatrix);
+    }
   }
-  result.segmentMatrix = createPointMatrix(allSelectedPoints, points, points2);
+  result.segmentMatrix = createPointMatrix(selectedPoints, points, points2);
   return result;
 }
 
-function getAdjustedSWMatrices(points: number[][], points2: number[][], similarityThreshold: number, result: IterativeSmithWatermanResult, ignoredPoints: number[][]) {
+function getAdjustedSWMatrices(points: number[][], points2: number[][], similarityThreshold: number, result: IterativeSmithWatermanResult, ignoredPoints: Set<string>) {
   //TODO MAKE SURE NO SLICING NEEDS TO HAPPEN (JUST RUN WITH COLLAPSED TEMPORAL FEATURES??)
   //points = points.map(p => p.slice(0,p.length-1));
   points = points.map(p => p.slice(1));

@@ -23,19 +23,16 @@ export class SmithWaterman {
   //if similarity threshold is null, equality is enforced
   constructor(private similarityTreshold = null) {}
 
-  run(seq1: number[][], seq2: number[][], ignoredPoints?: number[][]): SmithWatermanResult {
-    if (!ignoredPoints) {
-      ignoredPoints = [];
-    }
+  run(seq1: number[][], seq2: number[][], ignoredPoints = new Set<string>()): SmithWatermanResult {
+    ignoredPoints = _.clone(ignoredPoints);
     //ignore diagonal if sequences equal
     if (_.isEqual(seq1, seq2)) {
-      ignoredPoints.push(...seq1.map((e,i) => [i,i]));
+      seq1.map((_e,i) => ignoredPoints.add(i+","+i));
     }
-    let ignoredPointStrings: string[] = ignoredPoints.map(p => JSON.stringify(p)).map(p => p.slice(1,p.length-1));
-    return this.internalRun(seq1, seq2, ignoredPointStrings);
+    return this.internalRun(seq1, seq2, ignoredPoints);
   }
 
-  private internalRun(seq1: number[][], seq2: number[][], ignoredPoints: string[]): SmithWatermanResult {
+  private internalRun(seq1: number[][], seq2: number[][], ignoredPoints: Set<string>): SmithWatermanResult {
     let scoreMatrix = seq1.map(s => seq2.map(t => 0));
     let traceMatrix = seq1.map(s => seq2.map(t => 0));
 
@@ -48,7 +45,7 @@ export class SmithWaterman {
           let u_last = scoreMatrix[i-1][j];
           let l_last = scoreMatrix[i][j-1];
           //here we don't give scores for self alignment!! hence i != j
-          let notIgnored = ignoredPoints.indexOf(i+","+j) < 0;
+          let notIgnored = !ignoredPoints.has(i+","+j);
           let d_new = d_last + (notIgnored && this.isSimilar(s1, s2) ? this.matchScore : this.mismatchScore);
           let u_new = u_last + this.gapScore;
           let l_new = l_last + this.gapScore;
