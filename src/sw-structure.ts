@@ -13,21 +13,21 @@ export interface MultiSmithWatermanResult extends MultiStructureResult,
   IterativeSmithWatermanResult {}
 
 export interface SmithWatermanOptions extends CacheableStructureOptions {
-  maxIterations: number,
-  maxThreshold: number,
-  endThreshold: number,
-  minSegmentLength: number,
+  maxIterations?: number,
+  maxThreshold?: number,
+  endThreshold?: number,
+  minSegmentLength?: number,
   similarityThreshold?: number,
   onlyDiagonals?: boolean,
   fillGaps?: boolean,
   cacheDir?: string
 }
 
-export function getSWOptionsString(options: SmithWatermanOptions) {
-  return (options.maxIterations == 0 ? 't' : options.maxIterations)//t to be backwards-compatible with iterative save files
-    +'_'+ options.maxThreshold
-    +'_'+ options.endThreshold
-    +'_'+ options.minSegmentLength
+function getSWOptionsString(options: SmithWatermanOptions) {
+  return (options.maxIterations ? options.maxIterations : 't')//t to be backwards-compatible with iterative t/f save files
+    +'_'+ (options.maxThreshold ? options.maxThreshold : '')//0 == undefined
+    +'_'+ (options.endThreshold ? options.endThreshold : '')//0 == undefined
+    +'_'+ (options.minSegmentLength ? options.minSegmentLength : '')//0 == undefined
     +'_'+ (options.similarityThreshold != null ? options.similarityThreshold : '')
     +'_'+ (options.onlyDiagonals ? 't' : '')
 }
@@ -35,9 +35,10 @@ export function getSWOptionsString(options: SmithWatermanOptions) {
 export function getMultiSWOccurrences(points: number[][], points2: number[][],
     options: SmithWatermanOptions): MultiSmithWatermanResult {
   const file = 'sw_'+getSWOptionsString(options)+'.json';
-  return Object.assign(loadOrPerformAndCache(file,
-    () => getSmithWatermanOccurrences2(points, options, points2), options),
-    {points2: points2});
+  return loadOrPerformAndCache(file,
+    () => Object.assign(
+      getSmithWatermanOccurrences2(points, options, points2), {points2: points2}),
+    options);
 }
 
 export function getSmithWatermanOccurrences(points: number[][],
@@ -58,13 +59,16 @@ function getSmithWatermanOccurrences2(points: number[][],
   [i, j, max] = getIJAndMax(matrices.scoreMatrix);
   let iterations = 0;
 
-  while (max > options.maxThreshold && (!options.maxIterations || iterations < options.maxIterations)) {
+  while ((!options.maxThreshold || max > options.maxThreshold)
+      && (!options.maxIterations || iterations < options.maxIterations)) {
     iterations++;
     let currentPoints = getAlignment(matrices, i, j, options);
     let currentSegments = toSegments(currentPoints);
 
     //only add if longer than minSegmentLength
-    if (currentSegments.length > 0 && currentSegments[0].length > options.minSegmentLength && currentSegments[1].length > options.minSegmentLength) {
+    if (currentSegments.length > 0
+        && (!options.minSegmentLength || (currentSegments[0].length > options.minSegmentLength
+          && currentSegments[1].length > options.minSegmentLength))) {
       let dist = currentSegments[1][0]-currentSegments[0][0];
       //console.log("current max: " + max, "current dist: " + dist, "\ncurrent points: " + JSON.stringify(currentPoints), "\ncurrent segments: " + JSON.stringify(currentSegments));
       const vector = points[0].map((_,i) => i == 0 ? dist : 0);
@@ -130,7 +134,7 @@ function getAlignment(matrices: SmithWatermanResult, i: number, j: number, optio
   let currentValue = matrices.scoreMatrix[i][j];
   let currentTrace = matrices.traceMatrix[i][j];
   let pointsOnAlignment = [[i,j]];
-  while (currentValue > options.endThreshold) {
+  while (!options.endThreshold || currentValue > options.endThreshold) {
     //reset current location in matrix
     //TODO DONT NEED DO THIS!!!!!
     matrices.scoreMatrix[i][j] = 0;//-= 3;
