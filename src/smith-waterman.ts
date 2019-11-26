@@ -3,10 +3,10 @@ import { indexOfMax } from 'arrayutils';
 import { Similarity } from './similarity';
 
 export enum TRACES {
+  NONE,
   DIAGONAL,
   UP,
-  LEFT,
-  NONE
+  LEFT
 }
 
 export interface SmithWatermanResult {
@@ -49,7 +49,8 @@ export class SmithWaterman {
           let d_new = d_last + (notIgnored && this.isSimilar(s1, s2) ? this.matchScore : this.mismatchScore);
           let u_new = u_last + this.gapScore;
           let l_new = l_last + this.gapScore;
-          let options = [d_new, u_new, l_new, 0];
+          //ORDER NEEDS TO CORRESPOND TO TRACES ENUM ABOVE!!!!
+          let options = [0, d_new, u_new, l_new];
           scoreMatrix[i][j] = _.max(options);
           let trace = indexOfMax(options);
           traceMatrix[i][j] = trace;

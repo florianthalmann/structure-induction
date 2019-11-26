@@ -19,6 +19,7 @@ export interface SmithWatermanOptions extends CacheableStructureOptions {
   minSegmentLength?: number,
   similarityThreshold?: number,
   onlyDiagonals?: boolean,
+  nLongest?: number,
   fillGaps?: boolean,
   cacheDir?: string
 }
@@ -30,6 +31,7 @@ function getSWOptionsString(options: SmithWatermanOptions) {
     +'_'+ (options.minSegmentLength ? options.minSegmentLength : '')//0 == undefined
     +'_'+ (options.similarityThreshold != null ? options.similarityThreshold : '')
     +'_'+ (options.onlyDiagonals ? 't' : '')
+    +'_'+ (options.nLongest ? options.nLongest : '')
 }
 
 export function getMultiSWOccurrences(points: number[][], points2: number[][],
@@ -87,6 +89,10 @@ function getSmithWatermanOccurrences2(points: number[][],
     }
   }
   result.segmentMatrix = createPointMatrix(selectedPoints, points, points2);
+  if (options.nLongest) {
+    result.patterns = _.reverse(_.sortBy(result.patterns, p => p.points.length))
+      .slice(0, options.nLongest);
+  }
   return result;
 }
 
@@ -136,7 +142,7 @@ function getAlignment(matrices: SmithWatermanResult, i: number, j: number, optio
   let pointsOnAlignment = [[i,j]];
   while (!options.endThreshold || currentValue > options.endThreshold) {
     //reset current location in matrix
-    //TODO DONT NEED DO THIS!!!!!
+    //TODO DONT NEED DO THIS!!!!! (ignored segments do that later on...)
     matrices.scoreMatrix[i][j] = 0;//-= 3;
     if (currentTrace === TRACES.DIAGONAL) {
       [i,j] = [i-1,j-1];
@@ -156,9 +162,9 @@ function getAlignment(matrices: SmithWatermanResult, i: number, j: number, optio
     } else break;
   }
   if (options.onlyDiagonals && options.fillGaps) {
-    const f = _.first(pointsOnAlignment);
-    const l = _.last(pointsOnAlignment);
-    pointsOnAlignment = _.zip(_.range(f[0],l[0]), _.range(f[1],l[1]));
+    const f = _.first(pointsOnAlignment); //highest index
+    const l = _.last(pointsOnAlignment); //lowest index
+    pointsOnAlignment = _.zip(_.range(f[0],l[0]-1), _.range(f[1],l[1]-1));
   }
   return _.sortBy(pointsOnAlignment);
 }
