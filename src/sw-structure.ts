@@ -21,6 +21,8 @@ export interface SmithWatermanOptions extends CacheableStructureOptions {
   onlyDiagonals?: boolean,
   nLongest?: number,
   fillGaps?: boolean,
+  maxGapSize?: number,
+  maxGaps?: number,
   cacheDir?: string
 }
 
@@ -32,6 +34,8 @@ function getSWOptionsString(options: SmithWatermanOptions) {
     +'_'+ (options.similarityThreshold != null ? options.similarityThreshold : '')
     +'_'+ (options.onlyDiagonals ? 't' : '')
     +'_'+ (options.nLongest ? options.nLongest : '')
+    +'_'+ (options.maxGapSize ? options.maxGapSize : '')
+    +'_'+ (options.maxGaps ? options.maxGaps : '')
 }
 
 export function getMultiSWOccurrences(points: number[][], points2: number[][],
@@ -140,10 +144,13 @@ function getAlignment(matrices: SmithWatermanResult, i: number, j: number, optio
   let currentValue = matrices.scoreMatrix[i][j];
   let currentTrace = matrices.traceMatrix[i][j];
   let pointsOnAlignment = [[i,j]];
-  while (!options.endThreshold || currentValue > options.endThreshold) {
+  let numGaps = 0;
+  let currentGapSize = 0;
+  
+  while ((!options.endThreshold || currentValue > options.endThreshold)
+      && (!options.maxGapSize || currentGapSize <= options.maxGapSize)
+      && (!options.maxGaps || numGaps <= options.maxGaps)) {
     //reset current location in matrix
-    //TODO DONT NEED DO THIS!!!!! (ignored segments do that later on...)
-    matrices.scoreMatrix[i][j] = 0;//-= 3;
     if (currentTrace === TRACES.DIAGONAL) {
       [i,j] = [i-1,j-1];
     } else if (currentTrace === TRACES.UP && !options.onlyDiagonals) {
@@ -158,6 +165,10 @@ function getAlignment(matrices: SmithWatermanResult, i: number, j: number, optio
           //only add in strict diagonal version if it was a match
           currentValue > matrices.scoreMatrix[i-1][j-1])) {
         pointsOnAlignment.push([i,j]);
+        currentGapSize = 0;
+      } else {
+        if (currentGapSize == 0) numGaps++;
+        currentGapSize++;
       }
     } else break;
   }
