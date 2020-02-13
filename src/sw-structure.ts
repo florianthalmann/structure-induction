@@ -60,9 +60,12 @@ function getSmithWatermanOccurrences2(points: number[][],
     options: SmithWatermanOptions, points2?: number[][]) {
   let result: IterativeSmithWatermanResult = {points: points, patterns:[], matrices:[], segmentMatrix:[]};
   const symmetric = !points2 || _.isEqual(points2, points);
+  const padding = options.minDistance ? options.minDistance-1 : 0;
   if (symmetric) points2 = points;
   const selectedPoints: number[][] = [];
   const ignoredPoints = new Set<string>();
+  //ignore diagonal if symmetric (with padding depending on minDistance)
+  if (symmetric) addPaddedSegments(points.map((_p,i) => [i,i]), ignoredPoints, padding, symmetric);
   let matrices = getAdjustedSWMatrices(points, points2, options.similarityThreshold, result, ignoredPoints);
   var max: number, i: number, j: number;
   [i, j, max] = getIJAndMax(matrices.scoreMatrix);
@@ -87,14 +90,7 @@ function getSmithWatermanOccurrences2(points: number[][],
       selectedPoints.push(...currentPoints);
     }
     //update ignored points
-    currentPoints.forEach(p => {
-      const ignored = [p];
-      if (options.minDistance) _.range(1, options.minDistance)
-        .forEach(d => ignored.push([p[0]+d,p[1]], [p[0],p[1]+d]));
-      if (symmetric) _.cloneDeep(ignored)
-        .forEach(i => ignored.push(_.reverse(i)));
-      ignored.forEach(i => ignoredPoints.add(i.join(',')));
-    });
+    addPaddedSegments(currentPoints, ignoredPoints, padding, symmetric);
     if (!options.maxIterations || iterations < options.maxIterations) {
       matrices = getAdjustedSWMatrices(points, points2, options.similarityThreshold, result, ignoredPoints);
       [i, j, max] = getIJAndMax(matrices.scoreMatrix);
@@ -106,6 +102,18 @@ function getSmithWatermanOccurrences2(points: number[][],
       .slice(0, options.nLongest);
   }
   return result;
+}
+
+function addPaddedSegments(segment: number[][], set: Set<string>,
+    padding: number, symmetric: boolean) {
+  segment.forEach(p => {
+    const points = [p];
+    points.push(..._.flatten(_.range(1, padding+1)
+      .map(d => [[p[0]+d,p[1]], [p[0],p[1]+d]])));
+    if (symmetric) _.cloneDeep(points)
+      .forEach(i => points.push(_.reverse(i)));
+    points.forEach(p => set.add(p.join(',')));
+  });
 }
 
 function getAdjustedSWMatrices(points: number[][], points2: number[][],
