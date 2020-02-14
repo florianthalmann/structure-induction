@@ -1,6 +1,6 @@
 import * as _ from 'lodash';
 import { indexOfMax } from 'arrayutils';
-import { Similarity } from './similarity';
+import { getCosineSimilarity } from './similarity';
 
 export enum TRACES {
   NONE,
@@ -63,7 +63,7 @@ export class SmithWaterman {
 
   //negative similarityTreshold interpreted as min intersection ratio
   private isSimilar(v1: number[], v2: number[]): boolean {
-    return (this.similarityTreshold > 0 && Similarity.getCosineSimilarity(v1, v2) >= this.similarityTreshold)
+    return (this.similarityTreshold > 0 && getCosineSimilarity(v1, v2) >= this.similarityTreshold)
       || (this.similarityTreshold < 0 && this.intersect(v1, v2) >= -1*this.similarityTreshold)
       || _.isEqual(v1, v2);
   }

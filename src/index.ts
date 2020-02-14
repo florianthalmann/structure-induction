@@ -3,7 +3,7 @@ export { StructureResult, CacheableStructureOptions, getStructure, getCosiatec,
   getMultiCosiatec, Pattern, MultiStructureResult, MultiOpsiatecResult } from './structure';
 export { IterativeSmithWatermanResult, SmithWatermanOptions } from './sw-structure';
 export { Hierarchizer, Segmentation } from './hierarchizer';
-export { Similarity } from './similarity';
+export { getSelfSimilarityMatrix } from './similarity';
 export { Quantizer, ArrayMap, QUANT_FUNCS } from './quantizer';
 export { SmithWaterman } from './smith-waterman';
 export { CosiatecHeuristic, HEURISTICS } from './heuristics';
