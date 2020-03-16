@@ -35,7 +35,7 @@ function getSWOptionsString(options: SmithWatermanOptions) {
     +'_'+ (options.similarityThreshold != null ? options.similarityThreshold : '')
     +'_'+ (options.onlyDiagonals ? 't' : '')
     +'_'+ (options.nLongest ? options.nLongest : '')
-    +'_'+ (options.maxGapSize ? options.maxGapSize : '')
+    +'_'+ (options.maxGapSize != null ? options.maxGapSize : '')
     +'_'+ (options.maxGaps ? options.maxGaps : '')
     +'_'+ (options.minDistance ? options.minDistance : '')
 }
@@ -165,7 +165,7 @@ function getAlignment(matrices: SmithWatermanResult, i: number, j: number, optio
   let currentGapSize = 0;
   
   while ((!options.endThreshold || currentValue > options.endThreshold)
-      && (!options.maxGapSize || currentGapSize <= options.maxGapSize)
+      && (options.maxGapSize != null || currentGapSize <= options.maxGapSize)
       && (!options.maxGaps || numGaps <= options.maxGaps)) {
     //reset current location in matrix
     if (currentTrace === TRACES.DIAGONAL) {
