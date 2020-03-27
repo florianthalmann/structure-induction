@@ -27,8 +27,11 @@ function roundPoint(point, precision) {
 export function loadOrPerformAndCache<T>(file: string, func: ()=>T,
     options: CacheableStructureOptions, logString?: string): T {
   if (logString && options.loggingLevel > 0) console.log(logString);
-  return loadCached(file, options.cacheDir)
-    || saveCached(file, func(), options.cacheDir);
+  if (file && options.cacheDir) {
+    return loadCached(file, options.cacheDir)
+      || saveCached(file, func(), options.cacheDir);
+  }
+  return func();
 }
 
 export function loadCached<T>(file: string, cacheDir: string) {
