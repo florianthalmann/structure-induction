@@ -165,8 +165,8 @@ function getAlignment(matrices: SmithWatermanResult, i: number, j: number, optio
   let currentGapSize = 0;
   
   while ((!options.endThreshold || currentValue > options.endThreshold)
-      && (options.maxGapSize != null || currentGapSize <= options.maxGapSize)
-      && (!options.maxGaps || numGaps <= options.maxGaps)) {
+      && (options.maxGapSize == null || currentGapSize <= options.maxGapSize)
+      && (options.maxGaps == null || numGaps <= options.maxGaps)) {
     //reset current location in matrix
     if (currentTrace === TRACES.DIAGONAL) {
       [i,j] = [i-1,j-1];
