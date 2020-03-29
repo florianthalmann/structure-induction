@@ -91,7 +91,7 @@ function getSmithWatermanOccurrences2(points: number[][],
         result.patterns.push({points: segmentPoints[0], vectors: [vector], occurrences: segmentPoints});
         selectedAlignments.push(a);
       }
-      //update ignored points
+      //update ignored points (with all found ones, not only long ones)
       addPaddedSegments(a, ignoredPoints, padding, symmetric);
     });
     if (!options.maxIterations || iterations < options.maxIterations) {
@@ -101,9 +101,9 @@ function getSmithWatermanOccurrences2(points: number[][],
   }
   if (options.nLongest) {
     result.patterns = _.reverse(_.sortBy(result.patterns, p => p.points.length))
-      .slice(0, options.nLongest);
+      .slice(0, symmetric ? 2*options.nLongest : options.nLongest);
     selectedAlignments =  _.reverse(_.sortBy(selectedAlignments, a => a.length))
-      .slice(0, options.nLongest);
+      .slice(0, symmetric ? 2*options.nLongest : options.nLongest);
   }
   result.segmentMatrix = createPointMatrix(
     _.flatten(selectedAlignments), points, points2);
