@@ -1,5 +1,4 @@
 import * as _ from 'lodash';
-import { indexOfMax } from 'arrayutils';
 import { StructureResult, MultiStructureResult, CacheableStructureOptions } from './structure';
 import { loadOrPerformAndCache } from './util';
 import { SmithWaterman, SmithWatermanResult, TRACES } from './smith-waterman';
@@ -23,6 +22,7 @@ export interface SmithWatermanOptions extends CacheableStructureOptions {
   fillGaps?: boolean,
   maxGapSize?: number,
   maxGaps?: number,
+  maxGapRatio?: number,
   minDistance?: number, //min distance between parallel segments: 1 == directly adjacent, 2 == gap of one
   cacheDir?: string
 }
@@ -37,6 +37,7 @@ function getSWOptionsString(options: SmithWatermanOptions) {
     +'_'+ (options.nLongest ? options.nLongest : '')
     +'_'+ (options.maxGapSize != null ? options.maxGapSize : '')
     +'_'+ (options.maxGaps ? options.maxGaps : '')
+    +'_'+ (options.maxGapRatio ? options.maxGapRatio : '')
     +'_'+ (options.minDistance ? options.minDistance : '')
 }
 
@@ -65,61 +66,76 @@ function getSmithWatermanOccurrences2(points: number[][],
   let selectedAlignments: [number,number][][] = [];
   const ignoredPoints = new Set<string>();
   //ignore diagonal if symmetric (with padding depending on minDistance)
-  if (symmetric) addPaddedSegments(points.map((_p,i) => [i,i]), ignoredPoints, padding, symmetric);
+  if (symmetric) getPaddedArea(points.map((_p,i) => [i,i]), padding, symmetric,
+    points.length-1, points.length-1).forEach(p => ignoredPoints.add(p.join(',')));
   let matrices = getAdjustedSWMatrices(points, points2, options.similarityThreshold, result, ignoredPoints);
   let iterations = 0;
   let max = _.max(_.flatten(matrices.scoreMatrix));
-
+  
   while ((!options.maxThreshold || max > options.maxThreshold)
       && (!options.maxIterations || iterations < options.maxIterations)) {
     iterations++;
     
-    const currentAlignments = getAlignments(matrices, options);
+    const currentAlignments = getAlignments(matrices, options, symmetric);
     
     currentAlignments.forEach(a => {
-      let currentSegments = toSegments(a);
-
       //only add if longer than minSegmentLength
-      if (currentSegments.length > 0
-          && (!options.minSegmentLength || (currentSegments[0].length > options.minSegmentLength
-            && currentSegments[1].length > options.minSegmentLength))) {
-        let dist = currentSegments[1][0]-currentSegments[0][0];
-        //console.log("current max: " + max, "current dist: " + dist, "\ncurrent points: " + JSON.stringify(currentPoints), "\ncurrent segments: " + JSON.stringify(currentSegments));
-        const vector = points[0].map((_,i) => i == 0 ? dist : 0);
-        const segmentPoints = currentSegments.map((s,i) => s.map(j => [points,points2][i][j]));
-        //TODO ONLY ADD IF DIFFERENCE FROM EXISTING ONES SMALL ENOUGH!!!!!
-        result.patterns.push({points: segmentPoints[0], vectors: [vector], occurrences: segmentPoints});
+      if (a.length > 0 && (!options.minSegmentLength || a.length > options.minSegmentLength))
         selectedAlignments.push(a);
-      }
       //update ignored points (with all found ones, not only long ones)
-      addPaddedSegments(a, ignoredPoints, padding, symmetric);
+      getPaddedArea(a, padding, symmetric, points.length-1, points2.length-1)
+        .forEach(p => ignoredPoints.add(p.join(',')));
     });
     if (!options.maxIterations || iterations < options.maxIterations) {
       matrices = getAdjustedSWMatrices(points, points2, options.similarityThreshold, result, ignoredPoints);
       max = _.max(_.flatten(matrices.scoreMatrix));
     }
   }
-  if (options.nLongest) {
-    result.patterns = _.reverse(_.sortBy(result.patterns, p => p.points.length))
-      .slice(0, symmetric ? 2*options.nLongest : options.nLongest);
-    selectedAlignments =  _.reverse(_.sortBy(selectedAlignments, a => a.length))
-      .slice(0, symmetric ? 2*options.nLongest : options.nLongest);
+  //sort, longest first
+  selectedAlignments = _.reverse(_.sortBy(selectedAlignments, a => a.length));
+  //keep longest while respecting min dist
+  const thinned: [number, number][][] = [];
+  const matrix = getEmptyMatrix(points, points2);
+  while (selectedAlignments.length > 0
+      && (!options.nLongest || thinned.length < options.nLongest)) {
+    const currentAlignment = selectedAlignments.shift();
+    const nooverlap = currentAlignment.filter(p => matrix[p[0]][p[1]] == 0);
+    //add if not covered by any previous segment
+    if (nooverlap.length == currentAlignment.length) {
+      thinned.push(currentAlignment);
+      getPaddedArea(currentAlignment, padding, symmetric, points.length-1,
+        points2.length-1).forEach(p => matrix[p[0]][p[1]] = 1);
+    } else if (nooverlap.length >= options.minSegmentLength) {//add for later
+      const i = selectedAlignments.findIndex(a => a.length == nooverlap.length);
+      selectedAlignments.splice(i, 0, nooverlap);
+    }
   }
+  selectedAlignments = thinned;
+  //create segment matrix
   result.segmentMatrix = createPointMatrix(
     _.flatten(selectedAlignments), points, points2);
+  //result.segmentMatrix = matrix;
+  //convert to patterns
+  selectedAlignments.forEach(a => {
+    const currentSegments = toSegments(a);
+    const dist = currentSegments[1][0]-currentSegments[0][0];
+    const vector = points[0].map((_,i) => i == 0 ? dist : 0);
+    const segmentPoints = currentSegments.map((s,i) => s.map(j => [points,points2][i][j]));
+    result.patterns.push({points: segmentPoints[0], vectors: [vector], occurrences: segmentPoints});
+  });
+  
   return result;
 }
 
-function addPaddedSegments(segment: number[][], set: Set<string>,
-    padding: number, symmetric: boolean) {
-  segment.forEach(p => {
-    const points = [p];
-    points.push(..._.flatten(_.range(1, padding+1)
+function getPaddedArea(points: number[][], padding: number,
+    symmetric: boolean, maxX: number, maxY: number) {
+  return _.flatten(points.map(p => {
+    const ps = [p];
+    ps.push(..._.flatten(_.range(1, padding+1)
       .map(d => [[p[0]+d,p[1]], [p[0],p[1]+d]])));
-    if (symmetric) _.cloneDeep(points)
-      .forEach(i => points.push(_.reverse(i)));
-    points.forEach(p => set.add(p.join(',')));
-  });
+    if (symmetric) _.cloneDeep(ps).forEach(i => ps.push(_.reverse(i)));
+    return ps;
+  })).filter(p => p[0] <= maxX && p[1] <= maxY);
 }
 
 function getAdjustedSWMatrices(points: number[][], points2: number[][],
@@ -151,49 +167,70 @@ function createPointMatrix(selectedPoints: number[][], points: number[][], point
   return matrix;
 }
 
-function createSegmentMatrix(segments: number[][][], points: number[][], points2: number[][]): number[][] {
-  const matrix = getEmptyMatrix(points, points2);
-  segments.forEach(s => s[0].forEach((s0,i) => matrix[s0][s[1][i]] = 1));
-  return matrix;
-}
-
 function getEmptyMatrix(points: number[][], points2: number[][]) {
   let row = _.fill(new Array(points.length), 0);
-  return row.map(m => _.fill(new Array(points2.length), 0));
+  return row.map(_m => _.fill(new Array(points2.length), 0));
 }
 
-function getAlignments(matrices: SmithWatermanResult, options: SmithWatermanOptions) {
+function getAlignments(matrices: SmithWatermanResult, options: SmithWatermanOptions,
+    symmetric: boolean) {
   let currentMatrix = _.cloneDeep(matrices.scoreMatrix);
   let currentMatrices = _.cloneDeep(matrices);
   currentMatrices.scoreMatrix = currentMatrix;
-  let [i, j, max] = getIJAndMax(currentMatrix);
   const alignments: [number,number][][] = [];
-  while ((options.maxThreshold && max > options.maxThreshold) || max > 0) {
-    const currentAlignment = getAlignment(currentMatrices, i, j, options);
-    if (!options.minSegmentLength || currentAlignment.length > options.minSegmentLength)
+  
+  let maxes = <[number, number, number][]>
+    _.flatten(currentMatrix.map((r,i) => r.map((v,j) => [v,i,j])));
+  maxes = maxes.filter(vij => options.maxThreshold ?
+    vij[0] > options.maxThreshold : vij[0] > 0);
+  maxes = _.reverse(_.sortBy(maxes, vij => vij[0]));
+  
+  while (maxes.length > 0) {
+    const [i, j] = [maxes[0][1], maxes[0][2]];
+    let currentAlignment = getAlignment(currentMatrices, i, j, options);
+    
+    if ((!options.minSegmentLength || currentAlignment.length > options.minSegmentLength))
       alignments.push(currentAlignment);
-    removeAlignmentCoverage(currentMatrix, currentAlignment);
-    [i, j, max] = getIJAndMax(currentMatrix);
+    removeAlignmentCoverage(currentAlignment, currentMatrix, symmetric,
+      options.onlyDiagonals);
+    const nextMax = maxes.findIndex(m => currentMatrix[m[1]][m[2]] != 0);
+    maxes = maxes.slice(nextMax > 1 ? nextMax : 1);
   }
   return alignments;
 }
 
-function removeAlignmentCoverage(matrix: number[][], alignment: [number,number][]) {
+function removeAlignmentCoverage(alignment: [number,number][],
+    matrix: number[][], symmetric: boolean, diagonal: boolean) {
+  if (alignment.length > 0 && diagonal) {
+    alignment = _.clone(alignment);
+    let current = _.last(alignment);
+    let currentValue = matrix[current[0]][current[1]];
+    let next: [number, number] = [current[0]+1, current[1]+1];
+    while (next[0] < matrix.length && next[1] < matrix.length
+        && matrix[next[0]][next[1]] < currentValue) {
+      alignment.push(next);
+      currentValue = matrix[next[0]][next[1]];
+      next = [next[0]+1, next[1]+1];
+    }
+  }
   alignment.forEach(([i,j]) => {
     let ii = i+1, jj = j+1;
     let currentValue = matrix[i][j];
     while (ii < matrix.length && matrix[ii][j] <= currentValue) {
       currentValue = matrix[ii][j];
       matrix[ii][j] = 0;
+      if (symmetric) matrix[j][ii] = 0;
       ii++;
     }
     currentValue = matrix[i][j];
     while (jj < matrix[0].length && matrix[i][jj] <= currentValue) {
       currentValue = matrix[i][jj];
       matrix[i][jj] = 0;
+      if (symmetric) matrix[jj][i] = 0;
       jj++;
     }
     matrix[i][j] = 0;
+    if (symmetric) matrix[j][i] = 0;
   });
 }
 
@@ -204,10 +241,13 @@ function getAlignment(matrices: SmithWatermanResult, i: number, j: number, optio
   let pointsOnAlignment: [number, number][] = [[i,j]];
   let numGaps = 0;
   let currentGapSize = 0;
+  let totalGapSize = 0;
+  let gapRatio = 0;
   
   while ((!options.endThreshold || currentValue > options.endThreshold)
       && (options.maxGapSize == null || currentGapSize <= options.maxGapSize)
-      && (options.maxGaps == null || numGaps <= options.maxGaps)) {
+      && (options.maxGaps == null || numGaps <= options.maxGaps)
+      && (options.maxGapRatio == null || gapRatio <= options.maxGapRatio)) {
     //reset current location in matrix
     if (currentTrace === TRACES.DIAGONAL) {
       [i,j] = [i-1,j-1];
@@ -227,15 +267,22 @@ function getAlignment(matrices: SmithWatermanResult, i: number, j: number, optio
       } else {
         if (currentGapSize == 0) numGaps++;
         currentGapSize++;
+        totalGapSize++;
       }
+      //TODO adjust for nondiagonals...
+      gapRatio = totalGapSize/(pointsOnAlignment.length+totalGapSize);
     } else break;
   }
+  //sort by first/second component
+  pointsOnAlignment = _.sortBy(pointsOnAlignment, p=>p[1]);
+  pointsOnAlignment = _.sortBy(pointsOnAlignment, p=>p[0]);
+  //fill gaps if appropriate
   if (options.onlyDiagonals && options.fillGaps) {
-    const f = _.first(pointsOnAlignment); //highest index
-    const l = _.last(pointsOnAlignment); //lowest index
-    pointsOnAlignment = _.zip(_.range(f[0],l[0]-1), _.range(f[1],l[1]-1));
+    const f = _.first(pointsOnAlignment); //lowest index
+    const l = _.last(pointsOnAlignment); //highest index
+    pointsOnAlignment = _.zip(_.range(f[0],l[0]+1), _.range(f[1],l[1]+1));
   }
-  return _.sortBy(pointsOnAlignment);
+  return pointsOnAlignment;
 }
 
 function toSegments(alignmentPoints: number[][]) {
@@ -244,18 +291,6 @@ function toSegments(alignmentPoints: number[][]) {
   currentSegments.forEach(o => o.sort((a,b) => a-b));
   //remove duplicates
   return currentSegments.map(occ => _.uniq(occ));
-}
-
-function getIJAndMax(matrix: number[][]): [number, number, number] {
-  let ijAndMaxes = matrix.map((row,i) => [i].concat(getIAndMax(row)));
-  let index = indexOfMax(ijAndMaxes.map(m => m[2]));
-  return <[number, number, number]>ijAndMaxes[index];
-}
-
-function getIAndMax(array: number[]): [number, number] {
-  let iAndMax = [-1, 0];
-  array.forEach((x, i) => { if (x > iAndMax[1]) iAndMax = [i, x] });
-  return <[number, number]>iAndMax;
 }
 
 /*getSmithWatermanOccurrences(options): number[][][] {
