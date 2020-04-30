@@ -75,17 +75,14 @@ function getSmithWatermanOccurrences2(points: number[][],
   while ((!options.maxThreshold || max > options.maxThreshold)
       && (!options.maxIterations || iterations < options.maxIterations)) {
     iterations++;
-    
+    //extract alignments
     const currentAlignments = getAlignments(matrices, options, symmetric);
-    
-    currentAlignments.forEach(a => {
-      //only add if longer than minSegmentLength
-      if (a.length > 0 && (!options.minSegmentLength || a.length > options.minSegmentLength))
-        selectedAlignments.push(a);
-      //update ignored points (with all found ones, not only long ones)
+    selectedAlignments.push(...currentAlignments);
+    //update ignored points (with all found ones, not only long ones)
+    currentAlignments.forEach(a => 
       getPaddedArea(a, padding, symmetric, points.length-1, points2.length-1)
-        .forEach(p => ignoredPoints.add(p.join(',')));
-    });
+        .forEach(p => ignoredPoints.add(p.join(','))));
+    //prepare for next iteration
     if (!options.maxIterations || iterations < options.maxIterations) {
       matrices = getAdjustedSWMatrices(points, points2, options.similarityThreshold, result, ignoredPoints);
       max = _.max(_.flatten(matrices.scoreMatrix));
