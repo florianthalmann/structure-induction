@@ -1,6 +1,6 @@
 import * as _ from 'lodash';
-import { StructureResult, MultiStructureResult, CacheableStructureOptions } from './structure';
-import { loadOrPerformAndCache } from './util';
+import { StructureResult, MultiStructureResult, CacheableStructureOptions, Pattern } from './structure';
+import { loadOrPerformAndCache, loadCached } from './util';
 import { SmithWaterman, SmithWatermanResult, TRACES } from './smith-waterman';
 
 export interface IterativeSmithWatermanResult extends StructureResult {
@@ -59,16 +59,21 @@ export function getSmithWatermanOccurrences(points: number[][],
 
 function getSmithWatermanOccurrences2(points: number[][],
     options: SmithWatermanOptions, points2?: number[][]) {
-  let result: IterativeSmithWatermanResult = {points: points, patterns:[], matrices:[], segmentMatrix:[]};
   const symmetric = !points2 || _.isEqual(points2, points);
   const padding = options.minDistance ? options.minDistance-1 : 0;
   if (symmetric) points2 = points;
+  const allMatrices = [];
+  
+  const speedyResult = tryAndGetFromUnlimited(options);
+  if (speedyResult) return speedyResult;
+  
   let selectedAlignments: [number,number][][] = [];
   const ignoredPoints = new Set<string>();
   //ignore diagonal if symmetric (with padding depending on minDistance)
   if (symmetric) getPaddedArea(points.map((_p,i) => [i,i]), padding, symmetric,
     points.length-1, points.length-1).forEach(p => ignoredPoints.add(p.join(',')));
-  let matrices = getAdjustedSWMatrices(points, points2, options.similarityThreshold, result, ignoredPoints);
+  let matrices = getAdjustedSWMatrices(points, points2, options.similarityThreshold, ignoredPoints);
+  allMatrices.push(_.clone(matrices));
   let iterations = 0;
   let max = _.max(_.flatten(matrices.scoreMatrix));
   
@@ -84,44 +89,93 @@ function getSmithWatermanOccurrences2(points: number[][],
         .forEach(p => ignoredPoints.add(p.join(','))));
     //prepare for next iteration
     if (!options.maxIterations || iterations < options.maxIterations) {
-      matrices = getAdjustedSWMatrices(points, points2, options.similarityThreshold, result, ignoredPoints);
+      matrices = getAdjustedSWMatrices(points, points2, options.similarityThreshold, ignoredPoints);
+      allMatrices.push(_.clone(matrices));
       max = _.max(_.flatten(matrices.scoreMatrix));
     }
   }
-  //sort, longest first
-  selectedAlignments = _.reverse(_.sortBy(selectedAlignments, a => a.length));
+  
+  return getResult(selectedAlignments, options, points, points2, symmetric,
+    padding, allMatrices);
+}
+
+function getResult(alignments: [number,number][][],
+    options: SmithWatermanOptions, points: number[][], points2: number[][],
+    symmetric: boolean, padding: number, matrices: SmithWatermanResult[]) {
+  let result: IterativeSmithWatermanResult =
+    {points: points, patterns: [], matrices: matrices, segmentMatrix: []};
   //keep longest while respecting min dist
-  const thinned: [number, number][][] = [];
-  const matrix = getEmptyMatrix(points, points2);
-  while (selectedAlignments.length > 0
-      && (!options.nLongest || thinned.length < options.nLongest)) {
-    const currentAlignment = selectedAlignments.shift();
+  alignments = reduceSegments(alignments, options,
+    points.length, points2.length, symmetric, padding);
+  //create segment matrix
+  result.segmentMatrix = createPointMatrix(
+    _.flatten(alignments), points, points2);
+  //convert to patterns
+  result.patterns = toPatterns(alignments, points, points2);
+  return result;
+}
+
+function tryAndGetFromUnlimited(options: SmithWatermanOptions) {
+  const unlimitedLongestOptions = _.clone(options)
+  unlimitedLongestOptions.nLongest = undefined;
+  const cached: MultiSmithWatermanResult = loadCached(
+    'sw_'+getSWOptionsString(unlimitedLongestOptions)+'.json',
+    options.cacheDir);
+  if (cached) {
+    const points = cached.points;
+    const points2 = cached.points2 || points;
+    const symmetric = !points2 || _.isEqual(points2, points);
+    const padding = options.minDistance ? options.minDistance-1 : 0;
+    const alignments = cached.patterns.map(p =>
+      patternToAlignment(p, points, points2));
+    return getResult(alignments, options, points, points2, symmetric,
+      padding, cached.matrices);
+  }
+}
+
+function reduceSegments(alignments: [number,number][][],
+    options: SmithWatermanOptions, numPoints1: number, numPoints2: number,
+    symmetric: boolean, padding: number) {
+  //sort, longest first
+  alignments = _.reverse(_.sortBy(alignments, a => a.length));
+  const reduced: [number, number][][] = [];
+  const matrix = getEmptyMatrix(numPoints1, numPoints2);
+  //keep longest while respecting min dist
+  while (alignments.length > 0
+      && (!options.nLongest || reduced.length < options.nLongest)) {
+    const currentAlignment = alignments.shift();
     const nooverlap = currentAlignment.filter(p => matrix[p[0]][p[1]] == 0);
     //add if not covered by any previous segment
     if (nooverlap.length == currentAlignment.length) {
-      thinned.push(currentAlignment);
-      getPaddedArea(currentAlignment, padding, symmetric, points.length-1,
-        points2.length-1).forEach(p => matrix[p[0]][p[1]] = 1);
+      reduced.push(currentAlignment);
+      getPaddedArea(currentAlignment, padding, symmetric, numPoints1-1,
+        numPoints2-1).forEach(p => matrix[p[0]][p[1]] = 1);
     } else if (nooverlap.length >= options.minSegmentLength) {//add for later
-      const i = selectedAlignments.findIndex(a => a.length == nooverlap.length);
-      selectedAlignments.splice(i, 0, nooverlap);
+      const i = alignments.findIndex(a => a.length == nooverlap.length);
+      alignments.splice(i, 0, nooverlap);
     }
   }
-  selectedAlignments = thinned;
-  //create segment matrix
-  result.segmentMatrix = createPointMatrix(
-    _.flatten(selectedAlignments), points, points2);
-  //result.segmentMatrix = matrix;
-  //convert to patterns
-  selectedAlignments.forEach(a => {
+  return reduced;
+}
+
+function toPatterns(alignments: [number,number][][], points: number[][], points2: number[][]) {
+  return alignments.map(a => {
     const currentSegments = toSegments(a);
     const dist = currentSegments[1][0]-currentSegments[0][0];
     const vector = points[0].map((_,i) => i == 0 ? dist : 0);
     const segmentPoints = currentSegments.map((s,i) => s.map(j => [points,points2][i][j]));
-    result.patterns.push({points: segmentPoints[0], vectors: [vector], occurrences: segmentPoints});
+    return {points: segmentPoints[0], vectors: [vector], occurrences: segmentPoints};
   });
-  
-  return result;
+}
+
+function patternToAlignment(pattern: Pattern, points: number[][], points2: number[][]) {
+  const stringPoints = points.map(p => JSON.stringify(p));
+  const occ1Indexes = pattern.occurrences[0].map(p =>
+    stringPoints.indexOf(JSON.stringify(p)));
+  const stringPoints2 = points2.map(p => JSON.stringify(p));
+  const occ2Indexes = pattern.occurrences[1].map(p =>
+    stringPoints2.indexOf(JSON.stringify(p)));
+  return _.zip(occ1Indexes, occ2Indexes);
 }
 
 function getPaddedArea(points: number[][], padding: number,
@@ -136,7 +190,7 @@ function getPaddedArea(points: number[][], padding: number,
 }
 
 function getAdjustedSWMatrices(points: number[][], points2: number[][],
-    similarityThreshold: number, result: IterativeSmithWatermanResult, ignoredPoints: Set<string>) {
+    similarityThreshold: number, ignoredPoints: Set<string>) {
   //TODO MAKE SURE NO SLICING NEEDS TO HAPPEN (JUST RUN WITH COLLAPSED TEMPORAL FEATURES??)
   //points = points.map(p => p.slice(0,p.length-1));
   points = points.map(p => p.slice(1));
@@ -147,7 +201,6 @@ function getAdjustedSWMatrices(points: number[][], points2: number[][],
     //make lower matrix 0
     matrices.scoreMatrix = matrices.scoreMatrix.map((r,i) => r.map((c,j) => j < i ? 0 : c));
   }
-  result.matrices.push(_.clone(matrices));
   
   /*if (points.length <= points2.length) {
     //make lower matrix 0
@@ -159,14 +212,13 @@ function getAdjustedSWMatrices(points: number[][], points2: number[][],
 }
 
 function createPointMatrix(selectedPoints: number[][], points: number[][], points2: number[][]): number[][] {
-  const matrix = getEmptyMatrix(points, points2);
+  const matrix = getEmptyMatrix(points.length, points2.length);
   selectedPoints.forEach(p => matrix[p[0]][p[1]] = 1);
   return matrix;
 }
 
-function getEmptyMatrix(points: number[][], points2: number[][]) {
-  let row = _.fill(new Array(points.length), 0);
-  return row.map(_m => _.fill(new Array(points2.length), 0));
+function getEmptyMatrix(numRows: number, numCols: number) {
+  return _.range(0, numRows).map(_r => _.fill(new Array(numCols), 0));
 }
 
 function getAlignments(matrices: SmithWatermanResult, options: SmithWatermanOptions,
