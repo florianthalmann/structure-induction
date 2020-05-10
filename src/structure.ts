@@ -28,7 +28,7 @@ export interface MultiStructureResult extends StructureResult {
 export interface MultiOpsiatecResult extends OpsiatecResult, MultiStructureResult {}
 
 export interface CacheableStructureOptions {
-  quantizerFunctions: ArrayMap[],
+  quantizerFunctions?: ArrayMap[],
   cacheDir?: string,
   loggingLevel?: number
 }
@@ -110,7 +110,7 @@ export function getDualSmithWaterman(points1: number[][], points2: number[][], o
   return getMultiSWOccurrences(points1, points2, options);
 }
 
-function getQuantizedPoints(points: number[][], quantizerFuncs: ArrayMap[]) {
+function getQuantizedPoints(points: number[][], quantizerFuncs: ArrayMap[] = []) {
   const quantizer = new Quantizer(quantizerFuncs);
   const quantizedPoints = quantizer.getQuantizedPoints(points);
   return quantizedPoints;

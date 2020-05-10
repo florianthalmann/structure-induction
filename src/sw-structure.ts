@@ -41,6 +41,13 @@ function getSWOptionsString(options: SmithWatermanOptions) {
     +'_'+ (options.minDistance ? options.minDistance : '')
 }
 
+export function getSimpleSmithWatermanPath(points: number[][],
+    points2: number[][], options: SmithWatermanOptions) {
+  const matrices = new SmithWaterman(options.similarityThreshold)
+    .run(points, points2)
+  return getBestAlignment(matrices, options);
+}
+
 export function getMultiSWOccurrences(points: number[][], points2: number[][],
     options: SmithWatermanOptions): MultiSmithWatermanResult {
   const file = 'sw_'+getSWOptionsString(options)+'.json';
@@ -221,6 +228,21 @@ function getEmptyMatrix(numRows: number, numCols: number) {
   return _.range(0, numRows).map(_r => _.fill(new Array(numCols), 0));
 }
 
+function getBestAlignment(matrices: SmithWatermanResult, options: SmithWatermanOptions) {
+  const flat = _.flatten(matrices.scoreMatrix);
+  const index = flat.indexOf(_.max(flat));
+  const numCols = matrices.scoreMatrix[0].length;
+  const [i, j] = [_.floor(index/numCols), modForReal(index, numCols)];
+  const alignment = getAlignment(matrices, i, j, options);
+  //keep only matches
+  return alignment.filter(([i, j]) => matrices.traceMatrix[i][j] == TRACES.DIAGONAL
+    && matrices.scoreMatrix[i][j] > matrices.scoreMatrix[i-1][j-1]);
+}
+
+function modForReal(n: number, mod: number) {
+  return ((n%mod)+mod)%mod;
+}
+
 function getAlignments(matrices: SmithWatermanResult, options: SmithWatermanOptions,
     symmetric: boolean) {
   let currentMatrix = _.cloneDeep(matrices.scoreMatrix);
@@ -292,7 +314,6 @@ function getAlignment(matrices: SmithWatermanResult, i: number, j: number, optio
   let currentGapSize = 0;
   let totalGapSize = 0;
   let gapRatio = 0;
-  
   while ((!options.endThreshold || currentValue > options.endThreshold)
       && (options.maxGapSize == null || currentGapSize <= options.maxGapSize)
       && (options.maxGaps == null || numGaps <= options.maxGaps)
@@ -305,7 +326,7 @@ function getAlignment(matrices: SmithWatermanResult, i: number, j: number, optio
     } else if (currentTrace === TRACES.LEFT && !options.onlyDiagonals) {
       [i,j] = [i,j-1];
     }
-    if (matrices.scoreMatrix[i][j] !== currentValue) {//next alignment found
+    if (i >= 0 && j >= 0 && matrices.scoreMatrix[i][j] !== currentValue) {//next alignment found
       currentValue = matrices.scoreMatrix[i][j];
       currentTrace = matrices.traceMatrix[i][j];
       if (!options.onlyDiagonals || (currentTrace == TRACES.DIAGONAL &&
