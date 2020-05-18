@@ -131,12 +131,17 @@ function tryAndGetFromUnlimited(options: SmithWatermanOptions) {
   if (cached) {
     const points = cached.points;
     const points2 = cached.points2 || points;
-    const symmetric = !points2 || _.isEqual(points2, points);
-    const padding = options.minDistance ? options.minDistance-1 : 0;
+    //already sorted and spaced out, so just keep nLongest
     const alignments = cached.patterns.map(p =>
-      patternToAlignment(p, points, points2));
-    return getResult(alignments, options, points, points2, symmetric,
-      padding, cached.matrices);
+      patternToAlignment(p, points, points2)).slice(0, options.nLongest);
+    let result: IterativeSmithWatermanResult =
+      {points: points, patterns: [], matrices: cached.matrices, segmentMatrix: []};
+    //create segment matrix
+    result.segmentMatrix = createPointMatrix(
+      _.flatten(alignments), points, points2);
+    //convert to patterns
+    result.patterns = toPatterns(alignments, points, points2);
+    return result;
   }
 }
 
