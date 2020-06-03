@@ -71,7 +71,7 @@ function getSmithWatermanOccurrences2(points: number[][],
   if (symmetric) points2 = points;
   const allMatrices = [];
   
-  const speedyResult = tryAndGetFromUnlimited(options);
+  const speedyResult = tryAndGetFromUnlimited(options, symmetric);
   if (speedyResult) return speedyResult;
   
   let selectedAlignments: [number,number][][] = [];
@@ -116,13 +116,13 @@ function getResult(alignments: [number,number][][],
     points.length, points2.length, symmetric, padding);
   //create segment matrix
   result.segmentMatrix = createPointMatrix(
-    _.flatten(alignments), points, points2);
+    _.flatten(alignments), points, points2, symmetric);
   //convert to patterns
   result.patterns = toPatterns(alignments, points, points2);
   return result;
 }
 
-function tryAndGetFromUnlimited(options: SmithWatermanOptions) {
+function tryAndGetFromUnlimited(options: SmithWatermanOptions, symmetric: boolean) {
   const unlimitedLongestOptions = _.clone(options)
   unlimitedLongestOptions.nLongest = undefined;
   const cached: MultiSmithWatermanResult = loadCached(
@@ -138,7 +138,7 @@ function tryAndGetFromUnlimited(options: SmithWatermanOptions) {
       {points: points, patterns: [], matrices: cached.matrices, segmentMatrix: []};
     //create segment matrix
     result.segmentMatrix = createPointMatrix(
-      _.flatten(alignments), points, points2);
+      _.flatten(alignments), points, points2, symmetric);
     //convert to patterns
     result.patterns = toPatterns(alignments, points, points2);
     return result;
@@ -223,9 +223,11 @@ function getAdjustedSWMatrices(points: number[][], points2: number[][],
   return matrices;
 }
 
-function createPointMatrix(selectedPoints: number[][], points: number[][], points2: number[][]): number[][] {
+function createPointMatrix(selectedPoints: number[][], points: number[][],
+    points2: number[][], symmetric: boolean): number[][] {
   const matrix = getEmptyMatrix(points.length, points2.length);
   selectedPoints.forEach(p => matrix[p[0]][p[1]] = 1);
+  if (symmetric) selectedPoints.forEach(p => matrix[p[1]][p[0]] = 1);
   return matrix;
 }
 
@@ -265,7 +267,7 @@ function getAlignments(matrices: SmithWatermanResult, options: SmithWatermanOpti
     const [i, j] = [maxes[0][1], maxes[0][2]];
     let currentAlignment = getAlignment(currentMatrices, i, j, options);
     
-    if ((!options.minSegmentLength || currentAlignment.length > options.minSegmentLength))
+    if ((!options.minSegmentLength || currentAlignment.length >= options.minSegmentLength))
       alignments.push(currentAlignment);
     removeAlignmentCoverage(currentAlignment, currentMatrix, symmetric,
       options.onlyDiagonals);

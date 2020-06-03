@@ -1,6 +1,6 @@
 {
   "name": "siafun",
-  "version": "0.3.9",
+  "version": "0.3.10",
   "description": "A collection of structure induction algorithms",
   "main": "lib/index.js",
   "typings": "lib/index",
