@@ -83,12 +83,14 @@ function getSmithWatermanOccurrences2(points: number[][],
   allMatrices.push(_.clone(matrices));
   let iterations = 0;
   let max = _.max(_.flatten(matrices.scoreMatrix));
+  const maxThreshold = options.maxThreshold || 0;
   
-  while ((!options.maxThreshold || max > options.maxThreshold)
+  while (max > maxThreshold
       && (!options.maxIterations || iterations < options.maxIterations)) {
     iterations++;
     //extract alignments
     const currentAlignments = getAlignments(matrices, options, symmetric);
+    if (currentAlignments.length == 0) break;
     selectedAlignments.push(...currentAlignments);
     //update ignored points (with all found ones, not only long ones)
     currentAlignments.forEach(a => 
@@ -97,8 +99,10 @@ function getSmithWatermanOccurrences2(points: number[][],
     //prepare for next iteration
     if (!options.maxIterations || iterations < options.maxIterations) {
       matrices = getAdjustedSWMatrices(points, points2, options.similarityThreshold, ignoredPoints);
-      allMatrices.push(_.clone(matrices));
       max = _.max(_.flatten(matrices.scoreMatrix));
+      if (max > 0) {
+        allMatrices.push(_.clone(matrices));
+      }
     }
   }
   
@@ -313,6 +317,9 @@ function removeAlignmentCoverage(alignment: [number,number][],
 }
 
 function getAlignment(matrices: SmithWatermanResult, i: number, j: number, options: SmithWatermanOptions): [number,number][] {
+  const maxGapSize = options.maxGapSize || 0;
+  const maxGaps = options.maxGaps || 0;
+  const maxGapRatio = options.maxGapRatio || 0;
   //find ij trace in matrix
   let currentValue = matrices.scoreMatrix[i][j];
   let currentTrace = matrices.traceMatrix[i][j];
@@ -321,10 +328,10 @@ function getAlignment(matrices: SmithWatermanResult, i: number, j: number, optio
   let currentGapSize = 0;
   let totalGapSize = 0;
   let gapRatio = 0;
-  while ((!options.endThreshold || currentValue > options.endThreshold)
-      && (options.maxGapSize == null || currentGapSize <= options.maxGapSize)
-      && (options.maxGaps == null || numGaps <= options.maxGaps)
-      && (options.maxGapRatio == null || gapRatio <= options.maxGapRatio)) {
+  while ((!options.endThreshold || currentValue >= options.endThreshold)
+      && (currentGapSize <= maxGapSize)
+      && (numGaps <= maxGaps)
+      && (gapRatio <= maxGapRatio)) {
     //reset current location in matrix
     if (currentTrace === TRACES.DIAGONAL) {
       [i,j] = [i-1,j-1];
@@ -338,7 +345,8 @@ function getAlignment(matrices: SmithWatermanResult, i: number, j: number, optio
       currentTrace = matrices.traceMatrix[i][j];
       if (!options.onlyDiagonals || (currentTrace == TRACES.DIAGONAL &&
           //only add in strict diagonal version if it was a match
-          currentValue > matrices.scoreMatrix[i-1][j-1])) {
+          ((i == 0 || j == 0) ? currentValue > 0
+           : currentValue > matrices.scoreMatrix[i-1][j-1]))) {//first point
         pointsOnAlignment.push([i,j]);
         currentGapSize = 0;
       } else {

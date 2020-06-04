@@ -139,11 +139,11 @@ describe("a structure induction algorithm", function() {
 		var regs = vecs.map(v => HEURISTICS.getVectorsRegularity(v, 0));
 		expect(regs).toEqual([0,0,0.5,0,0,0.3333333333333333])
 		
-		var para = vecs.map(v => HEURISTICS.getAxisParallelism(v, 0));
+		/*var para = vecs.map(v => HEURISTICS.getAxisParallelism(v, 0));
 		expect(para).toEqual([0,0,0,1,0,0]);
 		
 		var anti = vecs.map(v => HEURISTICS.getAxisNonParallelism(v, 0));
-		expect(anti).toEqual([1,1,1,0,1,1]);
+		expect(anti).toEqual([1,1,1,0,1,1]);*/
 		
 		//test bounding box
 		//const points = HEURISTICS.getPointsInBoundingBox()

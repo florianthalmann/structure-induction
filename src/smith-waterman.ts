@@ -38,23 +38,19 @@ export class SmithWaterman {
 
     seq1.forEach((s1,i) => {
       seq2.forEach((s2,j) => {
-        if (i == 0 || j == 0) {
-          traceMatrix[i][j] = 3;
-        } else {
-          let d_last = scoreMatrix[i-1][j-1];
-          let u_last = scoreMatrix[i-1][j];
-          let l_last = scoreMatrix[i][j-1];
-          //here we don't give scores for self alignment!! hence i != j
-          let notIgnored = !ignoredPoints.has(i+","+j);
-          let d_new = d_last + (notIgnored && this.isSimilar(s1, s2) ? this.matchScore : this.mismatchScore);
-          let u_new = u_last + this.gapScore;
-          let l_new = l_last + this.gapScore;
-          //ORDER NEEDS TO CORRESPOND TO TRACES ENUM ABOVE!!!!
-          let options = [0, d_new, u_new, l_new];
-          scoreMatrix[i][j] = _.max(options);
-          let trace = indexOfMax(options);
-          traceMatrix[i][j] = trace;
-        }
+        let d_last = i > 0 && j > 0 ? scoreMatrix[i-1][j-1] : 0;
+        let u_last = i > 0 ? scoreMatrix[i-1][j] : 0;
+        let l_last = j > 0 ? scoreMatrix[i][j-1] : 0;
+        //here we don't give scores for self alignment!! hence i != j
+        let notIgnored = !ignoredPoints.has(i+","+j);
+        let d_new = d_last + (notIgnored && this.isSimilar(s1, s2) ? this.matchScore : this.mismatchScore);
+        let u_new = u_last + this.gapScore;
+        let l_new = l_last + this.gapScore;
+        //ORDER NEEDS TO CORRESPOND TO TRACES ENUM ABOVE!!!!
+        let options = [0, d_new, u_new, l_new];
+        scoreMatrix[i][j] = _.max(options);
+        let trace = indexOfMax(options);
+        traceMatrix[i][j] = trace;
       });
     });
     //console.log(JSON.stringify(scoreMatrix))
