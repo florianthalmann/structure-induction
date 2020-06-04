@@ -319,7 +319,7 @@ function removeAlignmentCoverage(alignment: [number,number][],
 function getAlignment(matrices: SmithWatermanResult, i: number, j: number, options: SmithWatermanOptions): [number,number][] {
   const maxGapSize = options.maxGapSize || 0;
   const maxGaps = options.maxGaps || 0;
-  const maxGapRatio = options.maxGapRatio || 0;
+  const maxGapRatio = options.maxGapRatio || 1;
   //find ij trace in matrix
   let currentValue = matrices.scoreMatrix[i][j];
   let currentTrace = matrices.traceMatrix[i][j];
