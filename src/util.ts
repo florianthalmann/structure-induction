@@ -3,6 +3,10 @@ import * as _ from 'lodash';
 import { Point, Occurrence, CacheableStructureOptions } from './structure';
 import { compareArrays } from 'arrayutils';
 
+export function modForReal(n: number, mod: number) {
+  return ((n%mod)+mod)%mod;
+}
+
 export function toOrderedPointString(points: number[][]): string {
   const clone = _.clone(points);
   clone.sort(compareArrays);

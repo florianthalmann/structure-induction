@@ -1,6 +1,6 @@
 import * as _ from 'lodash';
 import { StructureResult, MultiStructureResult, CacheableStructureOptions, Pattern } from './structure';
-import { loadOrPerformAndCache, loadCached } from './util';
+import { loadOrPerformAndCache, loadCached, modForReal } from './util';
 import { SmithWaterman, SmithWatermanResult, TRACES } from './smith-waterman';
 
 export interface IterativeSmithWatermanResult extends StructureResult {
@@ -248,10 +248,6 @@ function getBestAlignment(matrices: SmithWatermanResult, options: SmithWatermanO
   //keep only matches
   return alignment.filter(([i, j]) => matrices.traceMatrix[i][j] == TRACES.DIAGONAL
     && matrices.scoreMatrix[i][j] > matrices.scoreMatrix[i-1][j-1]);
-}
-
-function modForReal(n: number, mod: number) {
-  return ((n%mod)+mod)%mod;
 }
 
 function getAlignments(matrices: SmithWatermanResult, options: SmithWatermanOptions,
