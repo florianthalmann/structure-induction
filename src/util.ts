@@ -7,6 +7,14 @@ export function modForReal(n: number, mod: number) {
   return ((n%mod)+mod)%mod;
 }
 
+export function allIndexesOf<T>(array: T[], value: T) {
+  return allIndexesWith(array, a => a === value);
+}
+
+export function allIndexesWith<T>(array: T[], condition: (t: T) => boolean) {
+  return array.map((a,i) => condition(a) ? i : null).filter(i => i != null);
+}
+
 export function toOrderedPointString(points: number[][]): string {
   const clone = _.clone(points);
   clone.sort(compareArrays);
