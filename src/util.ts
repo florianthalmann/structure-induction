@@ -15,6 +15,16 @@ export function allIndexesWith<T>(array: T[], condition: (t: T) => boolean) {
   return array.map((a,i) => condition(a) ? i : null).filter(i => i != null);
 }
 
+export function cartesianProduct<T>(arr: T[][]): T[][] {
+  return arr.reduce((a, b) =>
+    a.map(x => b.map(y => x.concat([y])))
+      .reduce((a, b) => a.concat(b), []), [[]]);
+}
+
+export function getEntropy(data: number[]) {
+  return -1 * _.sum(data.map(d => d ? d*Math.log(d) : 0));
+}
+
 export function toOrderedPointString(points: number[][]): string {
   const clone = _.clone(points);
   clone.sort(compareArrays);

@@ -1,10 +1,17 @@
 import * as _ from 'lodash';
-import { modForReal, allIndexesOf } from './util';
+import { modForReal, allIndexesOf, cartesianProduct } from './util';
 
 export interface Segmentation {
   p: number, //position
   l: number, //length
   ts: number[] //translations
+}
+
+/*type Tree<T> = (Node<T> | T)[];
+interface Node<T> extends Array<T>{};*/
+
+interface Tree<T> {
+    [key: number]: Array<Tree<T> | T> | T;
 }
 
 /** assumes that all occurrences of segments are of the same length! */
@@ -23,7 +30,104 @@ export function removeAlignmentMatrixOverlaps(matrix: number[][]) {
   return segmentationsToMatrix(hierarchy, size);
 }
 
-/** removes any segmentation overlaps, starting with longest segmentation */
+export function getFirstHierarchicalSegmentation(matrix: number[][]) {
+  const segs = matrixToSegments(matrix).map(s => alignmentToSegmentations(s)[0]);
+  return getHierarchicalSegmentation(_.flatten(segs));
+}
+
+export function getHierarchicalSegmentations(matrix: number[][]) {
+  const allSegs = matrixToSegments(matrix).map(s => alignmentToSegmentations(s));
+  const prod = cartesianProduct(allSegs);
+  return prod.map(segs => getHierarchicalSegmentation(_.flatten(segs)));
+}
+
+function getHierarchicalSegmentation(segmentations: Segmentation[]) {
+  return addTransitivity(removeSegmentationOverlaps(segmentations, 1, 1));
+}
+
+/** construction of a hierarchy from a given number of segmentations */
+export function constructHierarchyFromSegmentations(segmentations: Segmentation[], size: number) {
+  const hierarchy: Tree<number> = _.range(0, size);
+  segmentations.forEach(s => _.concat([0], s.ts).forEach(t => {
+    groupAdjacentLeavesInTree(hierarchy, _.range(s.p+t, s.p+t+s.l));
+  }));
+  return simplifyHierarchy(hierarchy);
+}
+
+export function rateHierarchy<T>(tree: Tree<T>) {
+  //return getChildrenCounts(tree).filter(n => n > 0);
+  const lengths = getNodeLengths(tree).filter(n => n > 1);
+  console.log(JSON.stringify(lengths))
+  const complexity = lengths.length;
+  const quality = _.mean(lengths);
+  return quality*complexity;
+}
+
+function getChildrenCounts<T>(tree: Tree<T>): number[] {
+  return Array.isArray(tree) ?
+    [tree.length].concat(_.flatten(tree.map(t => getChildrenCounts(t)))) : [0];
+}
+
+function getNodeLengths<T>(tree: Tree<T>): number[] {
+  return Array.isArray(tree) ?
+    [_.flattenDeep(tree).length]
+      .concat(_.flatten(tree.map(t => getNodeLengths(t)))) : [1];
+}
+
+export function simplifyHierarchy<T>(hierarchy: Tree<T>) {
+  if (Array.isArray(hierarchy)) {
+    return hierarchy.length == 1 ? simplifyHierarchy(hierarchy[0]) :
+      hierarchy.map(h => simplifyHierarchy(h))
+  } else return hierarchy;
+}
+
+function groupAdjacentLeavesInTree<T>(tree: Tree<T>, leaves: T[]) {
+  if (Array.isArray(tree)) {
+    if (leaves.every(b => _.includes(tree, b))) {
+      const index = tree.indexOf(leaves[0]);
+      tree.splice(index, leaves.length, leaves);
+    } else {//recur
+      tree.forEach(t => groupAdjacentLeavesInTree(t, leaves));
+    }
+  }
+}
+
+/** overlaps have to be removed before */
+function addTransitivity(segmentations: Segmentation[]) {
+  segmentations.forEach((s,i) => {
+    _.reverse(segmentations.slice(0,i)).forEach(t => {
+      const ps = getPositions(s, t);
+      if (t.p+ps[0] < s.p) {
+        move(s, t.p+ps[0] - s.p);
+      }
+      if (ps.length > 0) {
+        s.ts = _.uniq(_.sortBy(_.concat(s.ts,
+          _.flatten(ps.map(p => [0].concat(t.ts).map(u => t.p+u+p-s.p))))))
+            .filter(t => t != 0);
+      }
+    });
+  });
+  return segmentations;
+}
+
+/** returns positions at which s is contained in t */
+function getPositions(s: Segmentation, t: Segmentation) {
+  const positions = getOccurrences(s).map(so => getOccurrences(t).map(to =>
+    so.every(p => _.includes(to, p)) ? so[0]-to[0] : -1));
+  return _.sortBy(_.uniq(_.flatten(positions).filter(p => p >= 0)));
+}
+
+function move(s: Segmentation, delta: number) {
+  s.p = s.p+delta;
+  s.ts = s.ts.map(t => t-delta);
+}
+
+function getOccurrences(s: Segmentation) {
+  return [s.p].concat(s.ts.map(t => s.p+t)).map(p => _.range(p, p+s.l));
+}
+
+/** removes any segmentation overlaps, starting with longest segmentation,
+    adjusting shorter ones to fit within limits */
 function removeSegmentationOverlaps(segments: Segmentation[], minSegLength = 4, divFactor = 2) {
   //sort by length and first translation vector
   segments = filterAndSortSegmentations(segments, minSegLength, divFactor);
@@ -31,16 +135,147 @@ function removeSegmentationOverlaps(segments: Segmentation[], minSegLength = 4, 
   while (segments.length > 0) {
     const next = segments.shift();
     result.push(next);
-    const newBorders = _.uniq(_.flatten(
-      [next.p].concat(next.ts.map(t => next.p+t)).map(t => [t, t+next.l])));
-    segments = newBorders.reduce((segs, b) =>
+    const newBoundaries = _.uniq(_.flatten(
+      _.concat([0], next.ts).map(t => [next.p+t, next.p+t+next.l])));
+    segments = newBoundaries.reduce((segs, b) =>
       _.flatten(segs.map(s => divideAtPos(s, b))), segments);
     segments = filterAndSortSegmentations(segments, minSegLength, divFactor);
   }
   return result;
 }
 
-/** infers a hierarchy from a sequence of numbers representing types */
+//sort by length and first translation vector
+function filterAndSortSegmentations(segmentations: Segmentation[],
+    minSegLength: number, divFactor: number) {
+  segmentations = segmentations.filter(s =>
+    s.l >= minSegLength && s.ts.every(t => modForReal(t, divFactor) == 0));
+  return _.reverse(_.sortBy(segmentations, s => s.l));
+}
+
+function patternsToSegmentations(patterns: number[][][]): Segmentation[] {
+  return patterns.map(p => toSegmentation(p));
+}
+
+/** very reductive: simply takes first of first set of segmentations */
+function matrixToSegmentations(matrix: number[][]): Segmentation[] {
+  const segments = matrixToSegments(matrix);
+  return _.flatten(segments.map(s => alignmentToSegmentations(s)[0][0]));
+}
+
+function segmentationsToMatrix(segmentations: Segmentation[], size: [number, number]): number[][] {
+  const matrix = getZeroMatrix(size);
+  segmentations.forEach(s => _.range(0, s.l).forEach(i => s.ts.forEach(t => {
+    matrix[s.p+i][s.p+t+i] = 1; matrix[s.p+t+i][s.p+i] = 1;
+  })));
+  return matrix;
+}
+
+export function matrixToSegments(matrix: number[][]): number[][][] {
+  let points = _.flatten(matrix.map((row,i) => row.map((val,j) => [i,j,val])))
+  points = points.filter(p => p[1] > p[0] && p[2] > 0)
+  points = _.sortBy(points, p => p[1]-p[0]);
+  const segments = points.reduce<number[][][]>((segs, p) => {
+    const prev = _.last(_.last(segs)) || [0,0,0];
+    p[0]-prev[0] == 1 && p[1]-prev[1] == 1 ?
+      _.last(segs).push(p.slice(0,2)) : segs.push([p.slice(0,2)]);
+    return segs;
+  }, []);
+  return _.reverse(_.sortBy(segments, s => s.length));
+}
+
+export function segmentsToMatrix(segments: number[][][], size: [number, number]): number[][] {
+  const matrix = getZeroMatrix(size);
+  segments.forEach(s => s.forEach(p => {
+    matrix[p[0]][p[1]] = 1; matrix[p[1]][p[0]] = 1;
+  }));
+  return matrix;
+}
+
+function getZeroMatrix(size: [number, number]) {
+  return _.range(0, size[0]).map(_i => _.range(0, size[1]).map(_j => 0));
+}
+
+//only keeps full occurrences TODO split off incomplete occurrences
+export function alignmentToSegmentations(a: number[][]): Segmentation[][] {
+  const interval = a[0][1]-a[0][0];
+  const length = Math.min(a.length, interval);
+  const numCopies = Math.floor(a.length/length);
+  const numSolutions = a.length > length ? modForReal(a.length, length)+1 : 1;
+  const positions = a.slice(0, numSolutions).map(p => p[0]);
+  const vectors = _.range(0, numCopies).map(t => ((t+1)*interval));
+  const fullSeg = {p: a[0][0], l: a.length, ts: vectors};
+  return positions.map(p => split(fullSeg, p-fullSeg.p));
+}
+
+/*function patternToSegments(segmentPair: number[][]) {
+  let newSegments = [toSegmentation(segmentPair)];
+  newSegments = processOverlaps(newSegments);
+  segmentations.push();
+}*/
+
+function updateSegmentations() {
+  //processOverlaps();
+  //mergePatterns();
+}
+
+function toSegmentation(pattern: number[][]): Segmentation {
+  const length = _.last(pattern[0])-pattern[0][0];
+  return {
+    p: pattern[0][0],
+    l: length,
+    ts: pattern.slice(1).map(p => p[0]-pattern[0][0])
+  };
+}
+
+function removeInnerOverlaps(segmentations: Segmentation[]): Segmentation[] {
+  return _.flatten(segmentations.map(s => split(s)));
+}
+
+/** pos: position relative to the beginning of the segmentation (s.p) */
+function split(s: Segmentation, pos = 0): Segmentation[] {
+  const segs = [];
+  const ts = _.min(s.ts);
+  //initial residue
+  if (pos > 0) {
+    const div = divide(s, pos);
+    segs.push(div[0]);
+    s = div[1];
+  }
+  //complete segmentations
+  while (s.l > ts) {
+    const div = divide(s, ts);
+    segs.push(div[0]);
+    s = div[1];
+  }
+  //final residue
+  if (s) segs.push(s);
+  return segs;
+}
+
+function divideAtPos(s: Segmentation, pos: number): Segmentation[] {
+  const locs = _.reverse(_.uniq([s.p].concat(s.ts.map(t => s.p+t)).map(p =>
+    p < pos && pos < p+s.l ? pos-p : -1).filter(loc => loc > -1)));
+  return _.reduce(locs, (segs,l) => divide(segs[0], l).concat(segs.slice(1)), [s]);
+}
+
+/** divides the segmentation s at position loc */
+function divide(s: Segmentation, loc: number): Segmentation[] {
+  if (0 < loc && loc < s.l) {
+    return [{p:s.p, l:loc, ts:s.ts}, {p:s.p+loc, l:s.l-loc, ts:s.ts}];
+  }
+  return [s];
+}
+
+function merge(s1: Segmentation, s2: Segmentation): Segmentation[] {
+  if (s1.p == s2.p) {
+    let minL = Math.min(s1.l, s2.l);
+    let s1div = divide(s1, minL);
+    let s2div = divide(s2, minL);
+    return [s1div[0]]
+  }
+}
+
+/** infers a hierarchy BOTTOM-UP from a sequence of numbers representing types */
 export function inferHierarchyFromTypeSequence(typeSequence: number[],
     unequalPairsOnly: boolean, log?: boolean) {
   //generate new types by merging into binary tree
@@ -167,104 +402,9 @@ function getMostCommonPair<T>(array: T[], unequalOnly = false): [T, T] {
     return JSON.parse(uniq[freqs.indexOf(maxFreq)]);
 }
 
-function filterAndSortSegmentations(segmentations: Segmentation[],
-    minSegLength: number, divFactor: number) {
-  segmentations = segmentations.filter(s =>
-    s.l >= minSegLength && s.ts.every(t => modForReal(t, divFactor) == 0));
-  return _.reverse(_.sortBy(segmentations, s => s.l));
-}
-
-function patternsToSegmentations(patterns: number[][][]): Segmentation[] {
-  return patterns.map(p => toSegmentation(p));
-}
-
-function matrixToSegmentations(matrix: number[][]): Segmentation[] {
-  let points = _.flatten(matrix.map((row,i) => row.map((val,j) => [i,j,val])))
-  points = points.filter(p => p[1] > p[0] && p[2] > 0)
-  points = _.sortBy(points, p => p[1]-p[0]);
-  let segments = points.reduce<number[][][]>((segs, p) => {
-    const prev = _.last(_.last(segs)) || [0,0,0];
-    p[0]-prev[0] == 1 && p[1]-prev[1] == 1 ?
-      _.last(segs).push(p.slice(0,2)) : segs.push([p.slice(0,2)]);
-    return segs;
-  }, []);
-  segments = _.reverse(_.sortBy(segments, s => s.length));
-  return segments.map(s => alignmentToSegmentation(s));
-}
-
-function segmentationsToMatrix(segmentations: Segmentation[], size: [number, number]): number[][] {
-  const matrix = _.range(0, size[0]).map(_i => _.range(0, size[1]).map(_j => 0));
-  segmentations.forEach(s => _.range(0, s.l).forEach(i => s.ts.forEach(t => {
-    matrix[s.p+i][s.p+t+i] = 1; matrix[s.p+t+i][s.p+i] = 1;
-  })));
-  return matrix;
-}
-
-//only keeps full occurrences TODO split off incomplete occurrences
-function alignmentToSegmentation(a: number[][]): Segmentation {
-  const position = a[0][0];
-  const interval = a[0][1]-a[0][0];
-  const length = Math.min(a.length, interval);
-  const numCopies = Math.floor(a.length/length);
-  const vectors = _.range(0, numCopies).map(t => ((t+1)*interval));
-  return {p: position, l: length, ts: vectors};
-}
-
-/*function patternToSegments(segmentPair: number[][]) {
-  let newSegments = [toSegmentation(segmentPair)];
-  newSegments = processOverlaps(newSegments);
-  segmentations.push();
-}*/
-
-function updateSegmentations() {
-  //processOverlaps();
-  //mergePatterns();
-}
-
-function toSegmentation(pattern: number[][]): Segmentation {
-  const length = _.last(pattern[0])-pattern[0][0];
-  return {
-    p: pattern[0][0],
-    l: length,
-    ts: pattern.slice(1).map(p => p[0]-pattern[0][0])
-  };
-}
-
-function removeInnerOverlaps(segmentations: Segmentation[]): Segmentation[] {
-  return _.flatten(segmentations.map(s => split(s)));
-}
-
-function split(s: Segmentation): Segmentation[] {
-  const segs = [];
-  let ts = _.min(s.ts);
-  while (s.l > ts) {
-    const div = divide(s, ts);
-    segs.push(div[0]);
-    s = div[1];
-  }
-  segs.push(s);
-  return segs;
-}
-
-function divideAtPos(s: Segmentation, pos: number): Segmentation[] {
-  const loc = [s.p].concat(s.ts.map(t => s.p+t)).map(p =>
-    p < pos && pos < p+s.l-1 ? pos-p : -1).filter(loc => loc > -1);
-  return loc.length > 0 ? divide(s, loc[0]) : [s];
-}
-
-/** divides the segmentation s at position loc */
-function divide(s: Segmentation, loc: number): Segmentation[] {
-  if (0 < loc && loc < s.l-1) {
-    return [{p:s.p, l:loc, ts:s.ts}, {p:s.p+loc, l:s.l-loc, ts:s.ts}];
-  }
-  return [s];
-}
-
-function merge(s1: Segmentation, s2: Segmentation): Segmentation[] {
-  if (s1.p == s2.p) {
-    let minL = Math.min(s1.l, s2.l);
-    let s1div = divide(s1, minL);
-    let s2div = divide(s2, minL);
-    return [s1div[0]]
-  }
+export function getNBestSegments(matrix: number[][], n: number) {
+  const segments = matrixToSegments(matrix);
+  const segmentations = matrixToSegmentations(matrix);
+  const zipped = _.zip(segments, segmentations);
+  return _.reverse(_.sortBy(zipped, z => z[1].l)).slice(0, n).map(z => z[0]);
 }
