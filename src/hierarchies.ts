@@ -164,9 +164,14 @@ function filterAndSortSegmentations(segmentations: Segmentation[],
 function segmentationsToMatrix(segmentations: Segmentation[],
     size: [number, number]): number[][] {
   const matrix = getZeroMatrix(size);
-  segmentations.forEach(s => _.range(0, s.l).forEach(i => s.ts.forEach(t => {
-    matrix[s.p+i][s.p+t+i] = 1; matrix[s.p+t+i][s.p+i] = 1;
-  })));
+  segmentations.forEach(s => {
+    const occs = [0].concat(s.ts);
+    _.range(0, s.l).forEach(i => occs.forEach(t => occs.forEach(u => {
+      if (t != u) {
+        matrix[s.p+t+i][s.p+u+i] = 1; matrix[s.p+u+i][s.p+t+i] = 1;
+      }
+    })));
+  });
   return matrix;
 }
 
