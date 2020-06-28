@@ -7,6 +7,10 @@ export interface Segmentation {
   ts: number[] //translations
 }
 
+interface SegGraph {
+  [key: number]: number[]
+}
+
 interface Tree<T> {
     [key: number]: Array<Tree<T> | T> | T;
 }
@@ -23,32 +27,144 @@ export function inferHierarchyFromMatrix(matrix: number[][]) {
   const possibleSegs = getAllHierarchicalSegmentations(matrix);
   const candidates = possibleSegs.map(s =>
     constructHierarchyFromSegmentations(s, matrix.length));
-  candidates.map(h => console.log(JSON.stringify(h)));
+  //candidates.map(h => console.log(JSON.stringify(h)));
   const ratings = candidates.map(rateHierarchy);
-  console.log(JSON.stringify(ratings));
-  console.log(JSON.stringify(segmentationsToMatrix(
-    possibleSegs[ratings.indexOf(_.max(ratings))], getSize(matrix))));
+  console.log(JSON.stringify(ratings.map(r => _.round(r, 2))));
+  /*console.log(JSON.stringify(segmentationsToMatrix(
+    possibleSegs[ratings.indexOf(_.max(ratings))], getSize(matrix))));*/
   return candidates[ratings.indexOf(_.max(ratings))];
 }
 
 /** simply takes the first of possible segmentations and builds a hierarchy */
 export function quicklyInferHierarchyFromMatrix(matrix: number[][]) {
-  const segs = matrixToSegments(matrix).map(s => alignmentToSegmentations(s)[0]);
-  return getHierarchicalSegmentation(_.flatten(segs));
+  const seg = getHierarchicalSegmentation(getFirstSegmentations(matrix));
+  return constructHierarchyFromSegmentations(seg, matrix.length);
 }
 
 export function keepNBestSegments(matrix: number[][], n: number): number[][] {
   const segments = matrixToSegments(matrix);
   //very reductive: simply takes first of first set of segmentations
-  const segmentations = _.flatten(segments.map(s => alignmentToSegmentations(s)[0][0]));
+  const segmentations = getFirstSegmentations(matrix);
   const best = _.reverse(_.sortBy(_.zip(segments, segmentations), z => z[1].l));
   return segmentsToMatrix(best.slice(0, n).map(z => z[0]), getSize(matrix));
 }
 
+export function cleanUpMatrix(matrix: number[][]): number[][] {
+  //very reductive: simply takes first of first set of segmentations
+  const segs = getHierarchicalSegmentation(getFirstSegmentations(matrix));
+  return segmentationsToMatrix(segs, getSize(matrix));
+}
+
 function getAllHierarchicalSegmentations(matrix: number[][]) {
-  const allSegs = matrixToSegments(matrix).map(s => alignmentToSegmentations(s));
+  const allSegs = matrixToSegmentations(matrix);
   const prod = cartesianProduct(allSegs);
   return prod.map(segs => getHierarchicalSegmentation(_.flatten(segs)));
+}
+
+export function getFirstSegmentations(matrix: number[][]) {
+  return simplifySegmentation(_.flatten(matrixToSegmentations(matrix).map(s => s[0])));
+}
+
+function matrixToSegmentations(matrix: number[][]) {
+  return matrixToSegments(matrix).map(s => alignmentToSegmentations(s));
+}
+
+export function simplifySegmentation(segmentation: Segmentation[]) {
+  console.log(segmentation.length)
+  segmentation = _.reverse(_.sortBy(segmentation, s => s.l));
+  segmentation = mergeAdjacent(segmentation);
+  console.log(segmentation.length)
+  console.log(JSON.stringify(segmentation))
+  //segmentation = addTransitivity(segmentation);
+  segmentation = removeSubsegs(segmentation);
+  console.log(segmentation.length);
+  console.log(JSON.stringify(segmentation));
+  
+  /*segmentation = removeOverlaps(segmentation);
+  console.log(segmentation.length);
+  console.log(JSON.stringify(segmentation));*/
+  
+  //now remove pattern overlaps (ts where segs longer in other pattern...)
+  //seggraph difference????
+  //segmentation = removeIncluded(segmentation);
+  return segmentation;
+}
+
+//needs to be sorted from long to short
+function mergeAdjacent(segmentation: Segmentation[]) {
+  return segmentation.reduce<Segmentation[]>((segs,s) => {
+    const merged = segs.length > 0 ? merge(_.last(segs), s) : null;
+    if (merged) segs[segs.length-1] = merged;
+    else segs.push(s);
+    return segs;
+  }, []);
+}
+
+function removeSubsegs(segmentation: Segmentation[]) {
+  const graphs = segmentation.map(s => toSegGraph(s));
+  return segmentation.filter((s,i) =>
+    !graphs.filter((_g,j) => i != j)// && segmentation[j].l >= s.l)
+      .some(g => subGraph(graphs[i], g)));
+}
+
+/*//removes whole occurrences in s if they are fully described by t
+function removeOverlaps(segmentation: Segmentation[]) {
+  return segmentation.map(s =>
+    segmentation.filter(t => t != s && t.l <= s.l).reduce((r,t) =>
+      difference(r, t)
+    , s));
+}
+
+export function difference(s: SegGraph, t: SegGraph) {
+  s = _.cloneDeep(s);
+  _.keys(t).forEach(k => { if (s[k]) s[k] = _.difference(s[k], t[k]) });
+  return cleanUp(s);
+}
+
+function cleanUp(s: SegGraph) {
+  _.keys(s).forEach(k => { if (s[k].length == 0) delete s[k] });
+  const firstImage: number[] = [];
+  const origin = _.takeWhile(_.keys(s), k =>
+    !subset(s[k], firstImage) ? firstImage.push(...s[k]) : false);
+  console.log(JSON.stringify(firstImage.length))
+  console.log(JSON.stringify(origin.length))
+  console.log(JSON.stringify(origin.map(o => s[o])))
+  const reached = origin.concat(_.flatten(origin.map(o => s[o])));
+  _.difference(_.keys(s), reached).forEach(k => delete s[k] );
+  return s;
+}*/
+
+//all these functions can be optimized due to the lists being sorted...
+export function subGraph(s: SegGraph, t: SegGraph) {
+  return _.keys(s).every(k => subset(s[k], t[k]));
+}
+
+//can be optimized for sorted lists...
+function subset<T>(s1: T[], s2: T[]) {
+  return s1.every(s => _.includes(s2, s));
+}
+
+export function toSegGraph(s: Segmentation) {
+  const graph: SegGraph = {};
+  const ts = [0].concat(s.ts);
+  _.range(s.p, s.p+s.l).forEach(p => ts.forEach((t,i) =>
+      i < ts.length-1 ? graph[p+t] = ts.slice(i+1).map(u => u+p) : null));
+  return graph;
+}
+
+export function toSeg(s: SegGraph): Segmentation {
+  const p = parseInt(_.keys(s)[0]);
+  const ts = s[p].map(t => t-p);
+  const l = _.takeWhile(_.keys(s), k => s[k].length == ts.length).length;
+  return {p: p, l: l, ts: ts};
+}
+
+export function getEdges(matrix: number[][]) {
+  const segs = getFirstSegmentations(matrix);
+  const result = _.range(0, matrix.length).map(_i => 0);
+  segs.forEach(s =>
+    [0].concat(s.ts).forEach(t => s.p+t < result.length ? result[s.p+t] = result[s.p+t]+s.l : 0));
+  return result;
 }
 
 function getHierarchicalSegmentation(segmentations: Segmentation[], minLength = 2) {
@@ -66,7 +182,7 @@ function constructHierarchyFromSegmentations(segmentations: Segmentation[], size
 
 export function rateHierarchy<T>(tree: Tree<T>) {
   const lengths = getNodeLengths(tree).filter(n => n > 1);
-  console.log(JSON.stringify(lengths))
+  //console.log("hierarchy lengths", JSON.stringify(lengths))
   const complexity = lengths.length;
   const quality = _.mean(lengths);
   return quality*complexity;
@@ -102,7 +218,7 @@ function groupAdjacentLeavesInTree<T>(tree: Tree<T>, leaves: T[]) {
 }
 
 /** overlaps have to be removed before */
-function addTransitivity(segmentations: Segmentation[]) {
+export function addTransitivity(segmentations: Segmentation[]) {
   segmentations.forEach((s,i) => {
     _.reverse(segmentations.slice(0,i)).forEach(t => {
       const ps = getPositions(s, t);
@@ -261,13 +377,28 @@ function divide(s: Segmentation, loc: number): Segmentation[] {
   return [s];
 }
 
-function merge(s1: Segmentation, s2: Segmentation): Segmentation[] {
-  if (s1.p == s2.p) {
-    let minL = Math.min(s1.l, s2.l);
-    let s1div = divide(s1, minL);
-    let s2div = divide(s2, minL);
-    return [s1div[0]]
+function merge(s1: Segmentation, s2: Segmentation): Segmentation {
+  if (s1.l == s2.l && commonPoint(s1, s2)) {
+    const p = _.min([s1.p, s2.p]);
+    return {
+      p: p,
+      l: s1.l,
+      ts: _.sortBy(_.uniq(_.flatten([s1, s2].map(s => s.ts.map(t => t+s.p-p)))))
+    }
   }
+  //maybe also try id lengths are different! (as in old code...)
+  /*let minL = Math.min(s1.l, s2.l);
+  let s1div = divide(s1, minL);
+  let s2div = divide(s2, minL);*/
+}
+
+function commonPoint(s1: Segmentation, s2: Segmentation) {
+  return _.intersection(getPoints(s1), getPoints(s2)).length > 0;
+}
+
+/** returns all the points at which occurrences of s begin */
+function getPoints(s: Segmentation) {
+  return [s.p].concat(s.ts.map(t => s.p+t));
 }
 
 /** infers a hierarchy BOTTOM-UP from a sequence of numbers representing types */
