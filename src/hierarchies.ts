@@ -217,17 +217,20 @@ function groupAdjacentLeavesInTree<T>(tree: Tree<T>, leaves: T[]) {
   }
 }
 
-/** overlaps have to be removed before */
+/** overlaps have to be removed before, and need to be sorted from longest to
+  shortest interval */
 export function addTransitivity(segmentations: Segmentation[]) {
   segmentations.forEach((s,i) => {
     _.reverse(segmentations.slice(0,i)).forEach(t => {
-      const ps = getPositions(s, t);
-      if (t.p+ps[0] < s.p) {
-        move(s, t.p+ps[0] - s.p);
-      }
+      const ps = getInternalPositions(s, t);
       if (ps.length > 0) {
+        //move ref point of child pattern to first occurrence
+        if (t.p+ps[0] < s.p) {
+          move(s, t.p+ps[0] - s.p);
+        }
+        //update translation vectors
         s.ts = _.uniq(_.sortBy(_.concat(s.ts,
-          _.flatten(ps.map(p => [0].concat(t.ts).map(u => t.p+u+p-s.p))))))
+          _.flatten(ps.map(p => getPoints(t).map(u => u+p-s.p))))))
             .filter(t => t != 0);
       }
     });
@@ -235,8 +238,8 @@ export function addTransitivity(segmentations: Segmentation[]) {
   return segmentations;
 }
 
-/** returns positions at which s is contained in t */
-function getPositions(s: Segmentation, t: Segmentation) {
+/** returns relative positions at which s is contained in t */
+function getInternalPositions(s: Segmentation, t: Segmentation) {
   const positions = getOccurrences(s).map(so => getOccurrences(t).map(to =>
     so.every(p => _.includes(to, p)) ? so[0]-to[0] : -1));
   return _.sortBy(_.uniq(_.flatten(positions).filter(p => p >= 0)));
@@ -247,6 +250,7 @@ function move(s: Segmentation, delta: number) {
   s.ts = s.ts.map(t => t-delta);
 }
 
+/** returns all the occurrences of a segmentation as index ranges */
 function getOccurrences(s: Segmentation) {
   return [s.p].concat(s.ts.map(t => s.p+t)).map(p => _.range(p, p+s.l));
 }
