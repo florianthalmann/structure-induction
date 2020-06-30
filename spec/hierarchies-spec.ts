@@ -2,11 +2,20 @@ import * as _ from 'lodash';
 import { loadJson } from '../src/util';
 import { inferHierarchyFromMatrix, keepNBestSegments, rateHierarchy,
   getFirstSegmentations, quicklyInferHierarchyFromMatrix, getEdges,
-  cleanUpMatrix, addTransitivity, toSegGraph, subGraph, toSeg } from '../src/hierarchies';
+  cleanUpMatrix, addTransitivity, toSegGraph, subGraph, toSeg,
+  alignmentToSegmentations } from '../src/hierarchies';
 
 describe("hierarchies", () => {
   
   const testMatrix = loadJson<number[][]>('spec/test-matrix.json');
+  
+  it("can convert between matrices and segmentations", () => {
+    const alignment = _.range(0,11).map(i => [i,i+3]);
+    expect(alignmentToSegmentations(alignment))
+      .toEqual([[{"p":0,"l":3,"ts":[3,6,9]},{"p":9,"l":2,"ts":[3]}],
+        [{"p":0,"l":1,"ts":[3]},{"p":1,"l":3,"ts":[3,6,9]},{"p":10,"l":1,"ts":[3]}],
+        [{"p":0,"l":2,"ts":[3]},{"p":2,"l":3,"ts":[3,6,9]}]]);
+  });
   
   it("can add transitivity", () => {
     

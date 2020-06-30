@@ -19,7 +19,7 @@ interface Tree<T> {
 export function inferHierarchyFromPatterns(patterns: number[][][]) {
   let segmentations = patterns.map(p => toSegmentation(p));
   //segments.forEach(s => processSegmentPair(s));
-  segmentations = _.flatten(segmentations.map(s => split(s)));
+  //segmentations = _.flatten(segmentations.map(s => split(s)));
   //TODO NOW BUILD HIERARCHY  
 }
 
@@ -70,19 +70,24 @@ function matrixToSegmentations(matrix: number[][]) {
 }
 
 export function simplifySegmentation(segmentation: Segmentation[]) {
-  console.log(segmentation.length)
+  console.log("full", segmentation.length)
   segmentation = _.reverse(_.sortBy(segmentation, s => s.l));
+  console.log(JSON.stringify(segmentation))
   segmentation = mergeAdjacent(segmentation);
-  console.log(segmentation.length)
+  console.log("merged", segmentation.length)
   console.log(JSON.stringify(segmentation))
   //segmentation = addTransitivity(segmentation);
   segmentation = removeSubsegs(segmentation);
-  console.log(segmentation.length);
+  console.log("subsegs", segmentation.length);
   console.log(JSON.stringify(segmentation));
   
-  /*segmentation = removeOverlaps(segmentation);
-  console.log(segmentation.length);
-  console.log(JSON.stringify(segmentation));*/
+  segmentation = syncMultiples(segmentation);
+  console.log("sync", segmentation.length);
+  console.log(JSON.stringify(segmentation));
+  
+  segmentation = removeMultiples(segmentation);
+  console.log("remove", segmentation.length);
+  console.log(JSON.stringify(segmentation));
   
   //now remove pattern overlaps (ts where segs longer in other pattern...)
   //seggraph difference????
@@ -103,8 +108,72 @@ function mergeAdjacent(segmentation: Segmentation[]) {
 function removeSubsegs(segmentation: Segmentation[]) {
   const graphs = segmentation.map(s => toSegGraph(s));
   return segmentation.filter((s,i) =>
-    !graphs.filter((_g,j) => i != j)// && segmentation[j].l >= s.l)
+    !graphs.filter((g,j) => i != j && size(graphs[i]) < size(g))// && segmentation[j].l >= s.l)
       .some(g => subGraph(graphs[i], g)));
+}
+
+function size(graph: SegGraph) {
+  return _.flatten(_.values(graph)).length;
+}
+
+/** align starting points and vectors of all patterns that are seamless multiples.
+  need to be sorted from long to short */
+function syncMultiples(segmentation: Segmentation[]) {
+  const seamlesses = segmentation.map(s => seamless(s));
+  let adjusted = true;
+  while (adjusted) {
+    adjusted = false;
+    segmentation.forEach((s,i) => segmentation.slice(0,i).forEach((t,j) => {
+      if (seamlesses[i] && seamlesses[j]
+        && multiple(t.l, s.l)
+        && overlapSize(s, t) >= Math.max(s.l, t.l)
+        && (s.p != t.p || t.ts.length+1 != Math.floor((s.ts.length+1)/(t.l/s.l)))
+          ) {
+        //adjust beginnings
+        if (s.p < t.p) moveBeginning(t, s.p-t.p);
+        if (t.p < s.p) moveBeginning(s, t.p-s.p);
+        //adjust vectors to cover same range
+        //console.log((t.ts.length+1), Math.floor((s.ts.length+1)/(t.l/s.l)))
+        const factor = t.l / s.l;
+        const copies = Math.max((t.ts.length+1)*factor, s.ts.length+1);
+        //console.log(copies, factor)
+        t.ts = _.range(1, Math.floor(copies/factor)).map(i => t.l*i);
+        s.ts = _.range(1, copies).map(i => s.l*i);
+        adjusted = true;
+      }
+    }));
+  }
+  return segmentation;
+}
+
+//needs to be seamless
+function moveBeginning(s: Segmentation, delta: number) {
+  s.p = s.p+delta;
+  s.ts = _.range(1, s.ts.length+1-Math.ceil(delta/s.l)).map(i => i*s.l);
+}
+
+function removeMultiples(segmentation: Segmentation[]) {
+  //remove patterns whose ts are a multiple of another existing pattern and
+  //are covered entirely by it...
+  return segmentation.filter((s,i) => !segmentation.slice(i+1).some(t =>
+    seamless(s) && seamless(t) && multiple(s.l, t.l)
+      && overlapSize(s, t) >= Math.max(s.l, t.l)
+      && s.p == t.p && s.ts.every(u => _.includes(t.ts, u))
+  ));
+}
+
+function seamless(s: Segmentation) {
+  return s.ts.map((t,i) => i == 0 ? t : t-s.ts[i-1]).every(t => t == s.l);
+}
+
+/** returns true if n is a multiple of m */
+function multiple(n: number, m: number) {
+  return modForReal(n, m) == 0;
+}
+
+function overlapSize(s: Segmentation, t: Segmentation) {
+  return _.intersection(_.flatten(getOccurrences(s)),
+    _.flatten(getOccurrences(t))).length;
 }
 
 /*//removes whole occurrences in s if they are fully described by t
@@ -226,7 +295,7 @@ export function addTransitivity(segmentations: Segmentation[]) {
       if (ps.length > 0) {
         //move ref point of child pattern to first occurrence
         if (t.p+ps[0] < s.p) {
-          move(s, t.p+ps[0] - s.p);
+          moveRefPoint(s, t.p+ps[0] - s.p);
         }
         //update translation vectors
         s.ts = _.uniq(_.sortBy(_.concat(s.ts,
@@ -245,7 +314,7 @@ function getInternalPositions(s: Segmentation, t: Segmentation) {
   return _.sortBy(_.uniq(_.flatten(positions).filter(p => p >= 0)));
 }
 
-function move(s: Segmentation, delta: number) {
+function moveRefPoint(s: Segmentation, delta: number) {
   s.p = s.p+delta;
   s.ts = s.ts.map(t => t-delta);
 }
@@ -326,15 +395,38 @@ function getZeroMatrix(size: [number, number]) {
 
 /** returns all possible partitions into segmentations for the given alignment.
   the partitions include full occurrences and initial and final residues */
-function alignmentToSegmentations(a: number[][]): Segmentation[][] {
+export function alignmentToSegmentations(a: number[][]): Segmentation[][] {
   const interval = a[0][1]-a[0][0];
   const length = Math.min(a.length, interval);
-  const numCopies = Math.floor(a.length/length);
   const numSolutions = a.length > length ? modForReal(a.length, length)+1 : 1;
-  const positions = a.slice(0, numSolutions).map(p => p[0]);
-  const vectors = _.range(0, numCopies).map(t => ((t+1)*interval));
-  const fullSeg = {p: a[0][0], l: a.length, ts: vectors};
-  return positions.map(p => split(fullSeg, p-fullSeg.p));
+  /*console.log(JSON.stringify(a));
+  console.log(JSON.stringify((a.length > length ?
+    _.range(0, numSolutions).map(i => getTiles(a[0][0], a.length, interval, i))
+    : [[{p: a[0][0], l: a.length, ts: [interval]}]])[0]));*/
+  return a.length > length ?
+    _.range(0, numSolutions).map(i => getTiles(a[0][0], a.length, interval, i))
+    : [[{p: a[0][0], l: a.length, ts: [interval]}]];
+}
+
+function getTiles(point: number, length: number, interval: number, offset = 0) {
+  const segs: Segmentation[] = [];
+  //initial residue
+  if (offset > 0) {
+    segs.push({p: point, l: offset, ts: [interval]});
+  }
+  //main tiles
+  const remainingLength = length-offset;
+  const numCopies = Math.floor(remainingLength/interval);
+  const vectors = _.range(1, numCopies+1).map(i => i*interval);
+  if (numCopies > 0) {
+    segs.push({p: point+offset, l: interval, ts: vectors});
+  }
+  //final residue
+  const rest = modForReal(remainingLength, interval);
+  if (rest > 0) {
+    segs.push({p: point+offset+_.last(vectors), l: rest, ts: [interval]});
+  }
+  return segs;
 }
 
 function toSegmentation(pattern: number[][]): Segmentation {
@@ -347,25 +439,24 @@ function toSegmentation(pattern: number[][]): Segmentation {
 }
 
 /** offset: position relative to the beginning of the segmentation (s.p) */
-function split(s: Segmentation, offset = 0): Segmentation[] {
-  const segs = [];
-  const ts = _.min(s.ts);
-  //initial residue
-  if (offset > 0) {
-    const div = divide(s, offset);
-    segs.push(div[0]);
-    s = div[1];
+/*function splitUp(s: Segmentation, offset = 0): Segmentation[] {
+  const period = _.min(s.ts);
+  const regular = s.ts.every(t => multiple(t, period));
+  if (regular && offset < ) {
+    console.log(s)
+    const segs = [];
+    //initial residue
+    if (offset > 0) {
+      segs.push({p: s.p, l: offset, ts: s.ts[0]});
+      s = {p: s.p+offset, l: s.l-offset, ts: s.ts};
+    }
+    //complete segmentations
+    segs.push({p: s.p+offset, l: period, ts: s.ts});
+    //final residue
+    if (s) segs.push({p: s.l-_.last()});
+    return segs;
   }
-  //complete segmentations
-  while (s.l > ts) {
-    const div = divide(s, ts);
-    segs.push(div[0]);
-    s = div[1];
-  }
-  //final residue
-  if (s) segs.push(s);
-  return segs;
-}
+}*/
 
 function divideAtPos(s: Segmentation, pos: number): Segmentation[] {
   const locs = _.reverse(_.uniq([s.p].concat(s.ts.map(t => s.p+t)).map(p =>
