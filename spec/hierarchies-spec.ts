@@ -1,9 +1,9 @@
 import * as _ from 'lodash';
 import { loadJson } from '../src/util';
 import { inferHierarchyFromMatrix, keepNBestSegments, rateHierarchy,
-  getFirstSegmentations, quicklyInferHierarchyFromMatrix, getEdges,
-  cleanUpMatrix, addTransitivity, toSegGraph, subGraph, toSeg,
-  alignmentToSegmentations } from '../src/hierarchies';
+  getFirstPatterns, quicklyInferHierarchyFromMatrix, getEdges,
+  cleanUpMatrix, addTransitivity, toPatternGraph, subGraph, graphToPattern,
+  alignmentToPatterns } from '../src/hierarchies';
 
 describe("hierarchies", () => {
   
@@ -11,7 +11,7 @@ describe("hierarchies", () => {
   
   it("can convert between matrices and segmentations", () => {
     const alignment = _.range(0,11).map(i => [i,i+3]);
-    expect(alignmentToSegmentations(alignment))
+    expect(alignmentToPatterns(alignment))
       .toEqual([[{"p":0,"l":3,"ts":[3,6,9]},{"p":9,"l":2,"ts":[3]}],
         [{"p":0,"l":1,"ts":[3]},{"p":1,"l":3,"ts":[3,6,9]},{"p":10,"l":1,"ts":[3]}],
         [{"p":0,"l":2,"ts":[3]},{"p":2,"l":3,"ts":[3,6,9]}]]);
@@ -31,13 +31,13 @@ describe("hierarchies", () => {
     const s1 = {"p":339,"l":23,"ts":[96]};
     const s2 = {"p":323,"l":32,"ts":[32,64,96,128,160,192,224,256]};
     const s3 = {"p":357,"l":21,"ts":[32,64,96,128,160,192,224,256,288]};
-    const g1 = toSegGraph(s1);
-    const g2 = toSegGraph(s2);
-    const g3 = toSegGraph(s3);
+    const g1 = toPatternGraph(s1);
+    const g2 = toPatternGraph(s2);
+    const g3 = toPatternGraph(s3);
 
-    expect(toSeg(g1)).toEqual(s1);
-    expect(toSeg(g2)).toEqual(s2);
-    expect(toSeg(g3)).toEqual(s3);
+    expect(graphToPattern(g1)).toEqual(s1);
+    expect(graphToPattern(g2)).toEqual(s2);
+    expect(graphToPattern(g3)).toEqual(s3);
     
     //test sub-segmentations
     expect(subGraph(g1, g2)).toBe(true);
@@ -56,7 +56,7 @@ describe("hierarchies", () => {
   
   it("can simplify segmentations", () => {
     
-    let segs = getFirstSegmentations(testMatrix);
+    let segs = getFirstPatterns(testMatrix);
     segs = _.reverse(_.sortBy(segs, s => s.l));
     //console.log(JSON.stringify(segs.filter(s => s.l > 1)))
     //console.log(JSON.stringify(_.groupBy(segs.map(s => _.min(s.ts)))));

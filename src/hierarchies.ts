@@ -1,13 +1,14 @@
 import * as _ from 'lodash';
 import { modForReal, allIndexesOf, cartesianProduct } from './util';
 
-export interface Segmentation {
+interface Pattern {
   p: number, //position
   l: number, //length
-  ts: number[] //translations
+  ts: number[], //translation vectors
+  r?: number //rest
 }
 
-interface SegGraph {
+interface PatternGraph {
   [key: number]: number[]
 }
 
@@ -16,88 +17,118 @@ interface Tree<T> {
 }
 
 /** assumes that all occurrences of segments are of the same length! */
-export function inferHierarchyFromPatterns(patterns: number[][][]) {
-  let segmentations = patterns.map(p => toSegmentation(p));
+export function inferHierarchyFromPatternOccurrences(occs: number[][][]) {
+  let patterns = occs.map(p => toPattern(p));
   //segments.forEach(s => processSegmentPair(s));
-  //segmentations = _.flatten(segmentations.map(s => split(s)));
+  //patterns = _.flatten(patterns.map(s => split(s)));
   //TODO NOW BUILD HIERARCHY  
 }
 
 export function inferHierarchyFromMatrix(matrix: number[][]) {
-  const possibleSegs = getAllHierarchicalSegmentations(matrix);
+  const possibleSegs = getAllHierarchicalPatterns(matrix);
   const candidates = possibleSegs.map(s =>
-    constructHierarchyFromSegmentations(s, matrix.length));
+    constructHierarchyFromPatterns(s, matrix.length));
   //candidates.map(h => console.log(JSON.stringify(h)));
   const ratings = candidates.map(rateHierarchy);
   console.log(JSON.stringify(ratings.map(r => _.round(r, 2))));
-  /*console.log(JSON.stringify(segmentationsToMatrix(
+  /*console.log(JSON.stringify(patternsToMatrix(
     possibleSegs[ratings.indexOf(_.max(ratings))], getSize(matrix))));*/
   return candidates[ratings.indexOf(_.max(ratings))];
 }
 
-/** simply takes the first of possible segmentations and builds a hierarchy */
+/** simply takes the first of possible patterns and builds a hierarchy */
 export function quicklyInferHierarchyFromMatrix(matrix: number[][]) {
-  const seg = getHierarchicalSegmentation(getFirstSegmentations(matrix));
-  return constructHierarchyFromSegmentations(seg, matrix.length);
+  const seg = getHierarchicalPattern(getFirstPatterns(matrix));
+  return constructHierarchyFromPatterns(seg, matrix.length);
 }
 
 export function keepNBestSegments(matrix: number[][], n: number): number[][] {
   const segments = matrixToSegments(matrix);
-  //very reductive: simply takes first of first set of segmentations
-  const segmentations = getFirstSegmentations(matrix);
-  const best = _.reverse(_.sortBy(_.zip(segments, segmentations), z => z[1].l));
+  //very reductive: simply takes first of first set of patterns
+  const patterns = getFirstPatterns(matrix);
+  const best = _.reverse(_.sortBy(_.zip(segments, patterns), z => z[1].l));
   return segmentsToMatrix(best.slice(0, n).map(z => z[0]), getSize(matrix));
 }
 
 export function cleanUpMatrix(matrix: number[][]): number[][] {
-  //very reductive: simply takes first of first set of segmentations
-  const segs = getHierarchicalSegmentation(getFirstSegmentations(matrix));
-  return segmentationsToMatrix(segs, getSize(matrix));
+  //very reductive: simply takes first of first set of patterns
+  const segs = getHierarchicalPattern(getFirstPatterns(matrix));
+  return patternsToMatrix(segs, getSize(matrix));
 }
 
-function getAllHierarchicalSegmentations(matrix: number[][]) {
-  const allSegs = matrixToSegmentations(matrix);
+function getAllHierarchicalPatterns(matrix: number[][]) {
+  const allSegs = matrixToPatterns(matrix);
   const prod = cartesianProduct(allSegs);
-  return prod.map(segs => getHierarchicalSegmentation(_.flatten(segs)));
+  return prod.map(segs => getHierarchicalPattern(_.flatten(segs)));
 }
 
-export function getFirstSegmentations(matrix: number[][]) {
-  return simplifySegmentation(_.flatten(matrixToSegmentations(matrix).map(s => s[0])));
+export function getFirstPatterns(matrix: number[][]) {
+  console.log(matrixToPatterns(matrix).map(s => s.length))
+  return simplifyPattern(_.flatten(matrixToPatterns(matrix).map(s => s[0])));
 }
 
-function matrixToSegmentations(matrix: number[][]) {
-  return matrixToSegments(matrix).map(s => alignmentToSegmentations(s));
+function matrixToPatterns(matrix: number[][]) {
+  return matrixToSegments(matrix).map(s => alignmentToPatterns(s));
 }
 
-export function simplifySegmentation(segmentation: Segmentation[]) {
-  console.log("full", segmentation.length)
-  segmentation = _.reverse(_.sortBy(segmentation, s => s.l));
-  console.log(JSON.stringify(segmentation))
-  segmentation = mergeAdjacent(segmentation);
-  console.log("merged", segmentation.length)
-  console.log(JSON.stringify(segmentation))
-  //segmentation = addTransitivity(segmentation);
-  segmentation = removeSubsegs(segmentation);
-  console.log("subsegs", segmentation.length);
-  console.log(JSON.stringify(segmentation));
+export function simplifyPattern(pattern: Pattern[]) {
+  console.log("full", pattern.length)
+  //sort by length, beginning point, and first vector
+  pattern = _.reverse(_.sortBy(_.reverse(_.sortBy(_.sortBy(
+    pattern, s => s.ts[0]), s => s.p)), s => s.l));
+  console.log(JSON.stringify(pattern))
+  /*pattern = mergeAdjacent(pattern);
+  console.log("merged", pattern.length)
+  console.log(JSON.stringify(pattern))
+  //pattern = addTransitivity(pattern);
+  pattern = removeSubsegs(pattern);
+  console.log("subsegs", pattern.length);
+  console.log(JSON.stringify(pattern));
   
-  segmentation = syncMultiples(segmentation);
-  console.log("sync", segmentation.length);
-  console.log(JSON.stringify(segmentation));
+  pattern = syncMultiples(pattern);
+  console.log("sync", pattern.length);
+  console.log(JSON.stringify(pattern));
   
-  segmentation = removeMultiples(segmentation);
-  console.log("remove", segmentation.length);
-  console.log(JSON.stringify(segmentation));
+  pattern = removeMultiples(pattern);
+  console.log("remove", pattern.length);
+  console.log(JSON.stringify(pattern));*/
+  
+  const limits = pattern.filter(s => s.l > 1).map(s => getLimits(s));
+  const allLimits = _.flatten(limits.slice(1));
+  const timeline = _.range(0, _.max(allLimits)+1).map(_i => 0);
+  allLimits.forEach(l => timeline[l]++);
+  console.log(JSON.stringify(timeline))
+  console.log(JSON.stringify(indexesOfNMax(timeline, 8)))
+  const comps = limits.map((ls,i) =>
+    allLimits.filter(l => _.includes(ls, l)).length / allLimits.length / pattern[i].ts.length);
+  console.log(JSON.stringify(comps));
+  console.log(_.sum(limits[0].map(l => timeline[l])));
+  console.log(_.sum(limits[0].map(l => l+1).map(l => timeline[l])));
+  console.log(_.sum(limits[0].map(l => l+2).map(l => timeline[l])));
+  console.log(_.sum(limits[0].map(l => l+3).map(l => timeline[l])));
+  console.log(_.sum(limits[0].map(l => l+4).map(l => timeline[l])));
+  console.log(_.sum(limits[0].map(l => l+5).map(l => timeline[l])));
+  console.log(_.sum(limits[0].map(l => l+6).map(l => timeline[l])));
+  console.log(_.sum(limits[0].map(l => l+7).map(l => timeline[l])));
+  console.log(_.sum(limits[0].map(l => l+8).map(l => timeline[l])));
+  console.log(JSON.stringify(limits.map(ls => _.sum(ls.map(l => timeline[l])))));
   
   //now remove pattern overlaps (ts where segs longer in other pattern...)
   //seggraph difference????
-  //segmentation = removeIncluded(segmentation);
-  return segmentation;
+  //pattern = removeIncluded(pattern);
+  return pattern;
+}
+
+function indexesOfNMax(array: number[], n: number): number[] {
+  const maxes = _.reverse(_.sortBy(array.map((a,i) => [a,i]), 0))
+    .filter(m => m[0] > 0); //filter out <= 0
+  return _.takeWhile(maxes, (m,i) => i < n || m[0] == maxes[i-1][0])
+    .map(m => m[1]);
 }
 
 //needs to be sorted from long to short
-function mergeAdjacent(segmentation: Segmentation[]) {
-  return segmentation.reduce<Segmentation[]>((segs,s) => {
+function mergeAdjacent(pattern: Pattern[]) {
+  return pattern.reduce<Pattern[]>((segs,s) => {
     const merged = segs.length > 0 ? merge(_.last(segs), s) : null;
     if (merged) segs[segs.length-1] = merged;
     else segs.push(s);
@@ -105,25 +136,25 @@ function mergeAdjacent(segmentation: Segmentation[]) {
   }, []);
 }
 
-function removeSubsegs(segmentation: Segmentation[]) {
-  const graphs = segmentation.map(s => toSegGraph(s));
-  return segmentation.filter((s,i) =>
-    !graphs.filter((g,j) => i != j && size(graphs[i]) < size(g))// && segmentation[j].l >= s.l)
+function removeSubsegs(pattern: Pattern[]) {
+  const graphs = pattern.map(s => toPatternGraph(s));
+  return pattern.filter((s,i) =>
+    !graphs.filter((g,j) => i != j && size(graphs[i]) < size(g))// && pattern[j].l >= s.l)
       .some(g => subGraph(graphs[i], g)));
 }
 
-function size(graph: SegGraph) {
+function size(graph: PatternGraph) {
   return _.flatten(_.values(graph)).length;
 }
 
 /** align starting points and vectors of all patterns that are seamless multiples.
   need to be sorted from long to short */
-function syncMultiples(segmentation: Segmentation[]) {
-  const seamlesses = segmentation.map(s => seamless(s));
+function syncMultiples(pattern: Pattern[]) {
+  const seamlesses = pattern.map(s => seamless(s));
   let adjusted = true;
   while (adjusted) {
     adjusted = false;
-    segmentation.forEach((s,i) => segmentation.slice(0,i).forEach((t,j) => {
+    pattern.forEach((s,i) => pattern.slice(0,i).forEach((t,j) => {
       if (seamlesses[i] && seamlesses[j]
         && multiple(t.l, s.l)
         && overlapSize(s, t) >= Math.max(s.l, t.l)
@@ -143,26 +174,26 @@ function syncMultiples(segmentation: Segmentation[]) {
       }
     }));
   }
-  return segmentation;
+  return pattern;
 }
 
 //needs to be seamless
-function moveBeginning(s: Segmentation, delta: number) {
+function moveBeginning(s: Pattern, delta: number) {
   s.p = s.p+delta;
   s.ts = _.range(1, s.ts.length+1-Math.ceil(delta/s.l)).map(i => i*s.l);
 }
 
-function removeMultiples(segmentation: Segmentation[]) {
+function removeMultiples(pattern: Pattern[]) {
   //remove patterns whose ts are a multiple of another existing pattern and
   //are covered entirely by it...
-  return segmentation.filter((s,i) => !segmentation.slice(i+1).some(t =>
+  return pattern.filter((s,i) => !pattern.slice(i+1).some(t =>
     seamless(s) && seamless(t) && multiple(s.l, t.l)
       && overlapSize(s, t) >= Math.max(s.l, t.l)
       && s.p == t.p && s.ts.every(u => _.includes(t.ts, u))
   ));
 }
 
-function seamless(s: Segmentation) {
+function seamless(s: Pattern) {
   return s.ts.map((t,i) => i == 0 ? t : t-s.ts[i-1]).every(t => t == s.l);
 }
 
@@ -171,15 +202,15 @@ function multiple(n: number, m: number) {
   return modForReal(n, m) == 0;
 }
 
-function overlapSize(s: Segmentation, t: Segmentation) {
+function overlapSize(s: Pattern, t: Pattern) {
   return _.intersection(_.flatten(getOccurrences(s)),
     _.flatten(getOccurrences(t))).length;
 }
 
 /*//removes whole occurrences in s if they are fully described by t
-function removeOverlaps(segmentation: Segmentation[]) {
-  return segmentation.map(s =>
-    segmentation.filter(t => t != s && t.l <= s.l).reduce((r,t) =>
+function removeOverlaps(pattern: Pattern[]) {
+  return pattern.map(s =>
+    pattern.filter(t => t != s && t.l <= s.l).reduce((r,t) =>
       difference(r, t)
     , s));
 }
@@ -204,7 +235,7 @@ function cleanUp(s: SegGraph) {
 }*/
 
 //all these functions can be optimized due to the lists being sorted...
-export function subGraph(s: SegGraph, t: SegGraph) {
+export function subGraph(s: PatternGraph, t: PatternGraph) {
   return _.keys(s).every(k => subset(s[k], t[k]));
 }
 
@@ -213,15 +244,15 @@ function subset<T>(s1: T[], s2: T[]) {
   return s1.every(s => _.includes(s2, s));
 }
 
-export function toSegGraph(s: Segmentation) {
-  const graph: SegGraph = {};
+export function toPatternGraph(s: Pattern) {
+  const graph: PatternGraph = {};
   const ts = [0].concat(s.ts);
   _.range(s.p, s.p+s.l).forEach(p => ts.forEach((t,i) =>
       i < ts.length-1 ? graph[p+t] = ts.slice(i+1).map(u => u+p) : null));
   return graph;
 }
 
-export function toSeg(s: SegGraph): Segmentation {
+export function graphToPattern(s: PatternGraph): Pattern {
   const p = parseInt(_.keys(s)[0]);
   const ts = s[p].map(t => t-p);
   const l = _.takeWhile(_.keys(s), k => s[k].length == ts.length).length;
@@ -229,21 +260,21 @@ export function toSeg(s: SegGraph): Segmentation {
 }
 
 export function getEdges(matrix: number[][]) {
-  const segs = getFirstSegmentations(matrix);
+  const segs = getFirstPatterns(matrix);
   const result = _.range(0, matrix.length).map(_i => 0);
   segs.forEach(s =>
     [0].concat(s.ts).forEach(t => s.p+t < result.length ? result[s.p+t] = result[s.p+t]+s.l : 0));
   return result;
 }
 
-function getHierarchicalSegmentation(segmentations: Segmentation[], minLength = 2) {
-  return addTransitivity(removeSegmentationOverlaps(segmentations, minLength, 1));
+function getHierarchicalPattern(patterns: Pattern[], minLength = 2) {
+  return addTransitivity(removePatternOverlaps(patterns, minLength, 1));
 }
 
-/** construction of a hierarchy from a given number of segmentations */
-function constructHierarchyFromSegmentations(segmentations: Segmentation[], size: number) {
+/** construction of a hierarchy from a given number of patterns */
+function constructHierarchyFromPatterns(patterns: Pattern[], size: number) {
   const hierarchy: Tree<number> = _.range(0, size);
-  segmentations.forEach(s => _.concat([0], s.ts).forEach(t => {
+  patterns.forEach(s => _.concat([0], s.ts).forEach(t => {
     groupAdjacentLeavesInTree(hierarchy, _.range(s.p+t, s.p+t+s.l));
   }));
   return simplifyHierarchy(hierarchy);
@@ -288,9 +319,9 @@ function groupAdjacentLeavesInTree<T>(tree: Tree<T>, leaves: T[]) {
 
 /** overlaps have to be removed before, and need to be sorted from longest to
   shortest interval */
-export function addTransitivity(segmentations: Segmentation[]) {
-  segmentations.forEach((s,i) => {
-    _.reverse(segmentations.slice(0,i)).forEach(t => {
+export function addTransitivity(patterns: Pattern[]) {
+  patterns.forEach((s,i) => {
+    _.reverse(patterns.slice(0,i)).forEach(t => {
       const ps = getInternalPositions(s, t);
       if (ps.length > 0) {
         //move ref point of child pattern to first occurrence
@@ -304,32 +335,32 @@ export function addTransitivity(segmentations: Segmentation[]) {
       }
     });
   });
-  return segmentations;
+  return patterns;
 }
 
 /** returns relative positions at which s is contained in t */
-function getInternalPositions(s: Segmentation, t: Segmentation) {
+function getInternalPositions(s: Pattern, t: Pattern) {
   const positions = getOccurrences(s).map(so => getOccurrences(t).map(to =>
     so.every(p => _.includes(to, p)) ? so[0]-to[0] : -1));
   return _.sortBy(_.uniq(_.flatten(positions).filter(p => p >= 0)));
 }
 
-function moveRefPoint(s: Segmentation, delta: number) {
+function moveRefPoint(s: Pattern, delta: number) {
   s.p = s.p+delta;
   s.ts = s.ts.map(t => t-delta);
 }
 
-/** returns all the occurrences of a segmentation as index ranges */
-function getOccurrences(s: Segmentation) {
+/** returns all the occurrences of a pattern as index ranges */
+function getOccurrences(s: Pattern) {
   return [s.p].concat(s.ts.map(t => s.p+t)).map(p => _.range(p, p+s.l));
 }
 
-/** removes any segmentation overlaps, starting with longest segmentation,
+/** removes any pattern overlaps, starting with longest pattern,
     adjusting shorter ones to fit within limits */
-function removeSegmentationOverlaps(segments: Segmentation[], minSegLength = 2, divFactor = 1) {
+function removePatternOverlaps(segments: Pattern[], minSegLength = 2, divFactor = 1) {
   //sort by length and first translation vector
-  segments = filterAndSortSegmentations(segments, minSegLength, divFactor);
-  const result: Segmentation[] = [];
+  segments = filterAndSortPatterns(segments, minSegLength, divFactor);
+  const result: Pattern[] = [];
   while (segments.length > 0) {
     const next = segments.shift();
     result.push(next);
@@ -337,23 +368,23 @@ function removeSegmentationOverlaps(segments: Segmentation[], minSegLength = 2, 
       _.concat([0], next.ts).map(t => [next.p+t, next.p+t+next.l])));
     segments = newBoundaries.reduce((segs, b) =>
       _.flatten(segs.map(s => divideAtPos(s, b))), segments);
-    segments = filterAndSortSegmentations(segments, minSegLength, divFactor);
+    segments = filterAndSortPatterns(segments, minSegLength, divFactor);
   }
   return result;
 }
 
 //sort by length and first translation vector
-function filterAndSortSegmentations(segmentations: Segmentation[],
+function filterAndSortPatterns(patterns: Pattern[],
     minSegLength: number, divFactor: number) {
-  segmentations = segmentations.filter(s =>
+  patterns = patterns.filter(s =>
     s.l >= minSegLength && s.ts.every(t => modForReal(t, divFactor) == 0));
-  return _.reverse(_.sortBy(segmentations, s => s.l));
+  return _.reverse(_.sortBy(patterns, s => s.l));
 }
 
-function segmentationsToMatrix(segmentations: Segmentation[],
+function patternsToMatrix(patterns: Pattern[],
     size: [number, number]): number[][] {
   const matrix = getZeroMatrix(size);
-  segmentations.forEach(s => {
+  patterns.forEach(s => {
     const occs = [0].concat(s.ts);
     _.range(0, s.l).forEach(i => occs.forEach(t => occs.forEach(u => {
       if (t != u) {
@@ -393,9 +424,16 @@ function getZeroMatrix(size: [number, number]) {
   return _.range(0, size[0]).map(_i => _.range(0, size[1]).map(_j => 0));
 }
 
-/** returns all possible partitions into segmentations for the given alignment.
+export function alignmentToPattern(a: number[][]): Pattern {
+  const interval = a[0][1]-a[0][0];
+  const length = Math.min(a.length, interval);
+  const rest = a.length > length ? modForReal(a.length, length) : 0;
+  return Object.apply(getTiles(a[0][0], a.length, interval), {r: rest});
+}
+
+/** returns all possible partitions into patterns for the given alignment.
   the partitions include full occurrences and initial and final residues */
-export function alignmentToSegmentations(a: number[][]): Segmentation[][] {
+export function alignmentToPatterns(a: number[][]): Pattern[][] {
   const interval = a[0][1]-a[0][0];
   const length = Math.min(a.length, interval);
   const numSolutions = a.length > length ? modForReal(a.length, length)+1 : 1;
@@ -405,11 +443,11 @@ export function alignmentToSegmentations(a: number[][]): Segmentation[][] {
     : [[{p: a[0][0], l: a.length, ts: [interval]}]])[0]));*/
   return a.length > length ?
     _.range(0, numSolutions).map(i => getTiles(a[0][0], a.length, interval, i))
-    : [[{p: a[0][0], l: a.length, ts: [interval]}]];
+    : [[{p: a[0][0], l: length, ts: [interval]}]];
 }
 
 function getTiles(point: number, length: number, interval: number, offset = 0) {
-  const segs: Segmentation[] = [];
+  const segs: Pattern[] = [];
   //initial residue
   if (offset > 0) {
     segs.push({p: point, l: offset, ts: [interval]});
@@ -429,17 +467,17 @@ function getTiles(point: number, length: number, interval: number, offset = 0) {
   return segs;
 }
 
-function toSegmentation(pattern: number[][]): Segmentation {
-  const length = _.last(pattern[0])-pattern[0][0];
+function toPattern(occurrences: number[][]): Pattern {
+  const length = _.last(occurrences[0])-occurrences[0][0];
   return {
-    p: pattern[0][0],
+    p: occurrences[0][0],
     l: length,
-    ts: pattern.slice(1).map(p => p[0]-pattern[0][0])
+    ts: occurrences.slice(1).map(p => p[0]-occurrences[0][0])
   };
 }
 
-/** offset: position relative to the beginning of the segmentation (s.p) */
-/*function splitUp(s: Segmentation, offset = 0): Segmentation[] {
+/** offset: position relative to the beginning of the pattern (s.p) */
+/*function splitUp(s: Pattern, offset = 0): Pattern[] {
   const period = _.min(s.ts);
   const regular = s.ts.every(t => multiple(t, period));
   if (regular && offset < ) {
@@ -450,7 +488,7 @@ function toSegmentation(pattern: number[][]): Segmentation {
       segs.push({p: s.p, l: offset, ts: s.ts[0]});
       s = {p: s.p+offset, l: s.l-offset, ts: s.ts};
     }
-    //complete segmentations
+    //complete patterns
     segs.push({p: s.p+offset, l: period, ts: s.ts});
     //final residue
     if (s) segs.push({p: s.l-_.last()});
@@ -458,27 +496,30 @@ function toSegmentation(pattern: number[][]): Segmentation {
   }
 }*/
 
-function divideAtPos(s: Segmentation, pos: number): Segmentation[] {
+function divideAtPos(s: Pattern, pos: number): Pattern[] {
   const locs = _.reverse(_.uniq([s.p].concat(s.ts.map(t => s.p+t)).map(p =>
     p < pos && pos < p+s.l ? pos-p : -1).filter(loc => loc > -1)));
   return _.reduce(locs, (segs,l) => divide(segs[0], l).concat(segs.slice(1)), [s]);
 }
 
-/** divides the segmentation s at position loc */
-function divide(s: Segmentation, loc: number): Segmentation[] {
+/** divides the pattern s at position loc */
+function divide(s: Pattern, loc: number): Pattern[] {
   if (0 < loc && loc < s.l) {
     return [{p:s.p, l:loc, ts:s.ts}, {p:s.p+loc, l:s.l-loc, ts:s.ts}];
   }
   return [s];
 }
 
-function merge(s1: Segmentation, s2: Segmentation): Segmentation {
+function merge(s1: Pattern, s2: Pattern): Pattern {
   if (s1.l == s2.l && commonPoint(s1, s2)) {
     const p = _.min([s1.p, s2.p]);
-    return {
-      p: p,
-      l: s1.l,
-      ts: _.sortBy(_.uniq(_.flatten([s1, s2].map(s => s.ts.map(t => t+s.p-p)))))
+    const ts = _.sortBy(_.uniq(_.flatten([s1, s2].map(s => s.ts.map(t => t+s.p-p)))));
+    if (ts.every((t,i) => i == 0 || t-ts[i-1] >= s1.l)) {
+      return {
+        p: p,
+        l: s1.l,
+        ts: ts
+      }
     }
   }
   //maybe also try id lengths are different! (as in old code...)
@@ -487,12 +528,16 @@ function merge(s1: Segmentation, s2: Segmentation): Segmentation {
   let s2div = divide(s2, minL);*/
 }
 
-function commonPoint(s1: Segmentation, s2: Segmentation) {
+function commonPoint(s1: Pattern, s2: Pattern) {
   return _.intersection(getPoints(s1), getPoints(s2)).length > 0;
 }
 
+function getLimits(s: Pattern) {
+  return _.flatten(getPoints(s).map(p => [p, p+s.l]));
+}
+
 /** returns all the points at which occurrences of s begin */
-function getPoints(s: Segmentation) {
+function getPoints(s: Pattern) {
   return [s.p].concat(s.ts.map(t => s.p+t));
 }
 
@@ -601,10 +646,10 @@ function replaceTypesRecursively(hierarchy: any[], types: Map<number,number[]>) 
   return hierarchy;
 }
 
-function replaceInTree(tree: any[], pattern: any, replacement: any) {
+function replaceInTree(tree: any[], subtree: any, replacement: any) {
   if (!tree.length) return tree;
-  return tree.map(n => _.isEqual(n, pattern) ? replacement
-    : replaceInTree(n, pattern, replacement));
+  return tree.map(n => _.isEqual(n, subtree) ? replacement
+    : replaceInTree(n, subtree, replacement));
 }
 
 function getMostCommonPair<T>(array: T[], unequalOnly = false): [T, T] {
