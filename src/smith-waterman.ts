@@ -14,11 +14,13 @@ export interface SmithWatermanResult {
   traceMatrix: number[][]
 }
 
+export const GAP_SCORE = -5;
+
 export class SmithWaterman {
 
   private matchScore = 3;
   private mismatchScore = -2;
-  private gapScore = -5;
+  private gapScore = GAP_SCORE;
 
   //if similarity threshold is null, equality is enforced
   constructor(private similarityTreshold = null) {}

@@ -1,7 +1,7 @@
 import * as _ from 'lodash';
 import { StructureResult, MultiStructureResult, CacheableStructureOptions, Pattern } from './structure';
 import { loadOrPerformAndCache, loadCached, modForReal } from './util';
-import { SmithWaterman, SmithWatermanResult, TRACES } from './smith-waterman';
+import { SmithWaterman, SmithWatermanResult, TRACES, GAP_SCORE } from './smith-waterman';
 
 export interface IterativeSmithWatermanResult extends StructureResult {
   matrices: SmithWatermanResult[],
@@ -279,6 +279,7 @@ function getAlignments(matrices: SmithWatermanResult, options: SmithWatermanOpti
 
 function removeAlignmentCoverage(alignment: [number,number][],
     matrix: number[][], symmetric: boolean, diagonal: boolean) {
+  //remove diagonal bleeding at end of alignment (until next match)
   if (alignment.length > 0 && diagonal) {
     alignment = _.clone(alignment);
     let current = _.last(alignment);
@@ -291,17 +292,18 @@ function removeAlignmentCoverage(alignment: [number,number][],
       next = [next[0]+1, next[1]+1];
     }
   }
+  //remove horizontal and vertical bleeding (any gaps)
   alignment.forEach(([i,j]) => {
     let ii = i+1, jj = j+1;
     let currentValue = matrix[i][j];
-    while (ii < matrix.length && matrix[ii][j] <= currentValue) {
+    while (ii < matrix.length && matrix[ii][j] <= currentValue+GAP_SCORE) {
       currentValue = matrix[ii][j];
       matrix[ii][j] = 0;
       if (symmetric) matrix[j][ii] = 0;
       ii++;
     }
     currentValue = matrix[i][j];
-    while (jj < matrix[0].length && matrix[i][jj] <= currentValue) {
+    while (jj < matrix[0].length && matrix[i][jj] <= currentValue+GAP_SCORE) {
       currentValue = matrix[i][jj];
       matrix[i][jj] = 0;
       if (symmetric) matrix[jj][i] = 0;

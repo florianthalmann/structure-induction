@@ -75,8 +75,8 @@ export function loadJson<T>(file: string) {
 function saveJson<T>(path: string, json: T) {
   try {
     fs.writeFileSync(path, JSON.stringify(json));
-    return json;
   } catch (e) {
     console.log('failed to cache '+path);
   }
+  return json;
 }
