@@ -25,6 +25,12 @@ export function getEntropy(data: number[]) {
   return -1 * _.sum(data.map(d => d ? d*Math.log(d) : 0));
 }
 
+export function getMedian(data: number[]) {
+  data = _.sortBy(data);
+  const middle = _.floor(data.length/2);
+  return data.length % 2 ? data[middle] : (data[middle-1] + data[middle])/2;
+}
+
 export function toOrderedPointString(points: number[][]): string {
   const clone = _.clone(points);
   clone.sort(compareArrays);

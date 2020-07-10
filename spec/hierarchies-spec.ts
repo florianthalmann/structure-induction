@@ -3,11 +3,14 @@ import { loadJson } from '../src/util';
 import { inferHierarchyFromMatrix, keepNBestSegments, rateHierarchy,
   getFirstPatterns, quicklyInferHierarchyFromMatrix, getEdges,
   cleanUpMatrix, addTransitivity, toPatternGraph, subGraph, graphToPattern,
-  alignmentToPatterns } from '../src/hierarchies';
+  alignmentToPatterns, inferHierarchyFromTypeSequence, minDistFromParents,
+  containedBy, getDistance } from '../src/hierarchies';
+import { getSelfSimilarityMatrix } from '../src/similarity';
 
 describe("hierarchies", () => {
   
-  const testMatrix = loadJson<number[][]>('spec/test-matrix.json');
+  const testMatrix = loadJson<number[][]>('spec/data/test-matrix.json');
+  const testSequence = loadJson<string[]>('spec/data/test-sequence.json');
   
   it("can convert between matrices and segmentations", () => {
     const alignment = _.range(0,11).map(i => [i,i+3]);
@@ -62,6 +65,28 @@ describe("hierarchies", () => {
     //console.log(JSON.stringify(_.groupBy(segs.map(s => _.min(s.ts)))));
     
   });
+  
+  it("can build hierarchies", () => {
+    
+    expect(containedBy({"p":4,"l":9,"ts":[17]}, {"p":0,"l":16,"ts":[16]})).toBe(true);
+    expect(getDistance({"p":4,"l":9,"ts":[17]}, {"p":0,"l":16,"ts":[16]})).toBe(1);
+    expect(minDistFromParents({"p":4,"l":9,"ts":[17]}, [{"p":0,"l":16,"ts":[16]}])).toBe(1);
+    
+    const plain = quicklyInferHierarchyFromMatrix(testMatrix, false);
+    const simplified = quicklyInferHierarchyFromMatrix(testMatrix, true);
+    
+    console.log("plain", JSON.stringify(plain))
+    console.log("simple", JSON.stringify(simplified))
+    
+    const types = _.uniq(testSequence);
+    const typeSequence = testSequence.map(s => types.indexOf(s));
+    const ssm = getSelfSimilarityMatrix(typeSequence.map(t => [t]), true);
+    
+    console.log("ssm", JSON.stringify(quicklyInferHierarchyFromMatrix(ssm, false)))
+    
+    console.log("bottom up", JSON.stringify(inferHierarchyFromTypeSequence(typeSequence, false)))
+    
+  });
 
   it("can find optimal groupings", () => {
     //const threeLongest = keepNBestSegments(testMatrix, 5);
@@ -70,11 +95,23 @@ describe("hierarchies", () => {
     //console.log(JSON.stringify(getEdges(testMatrix)))
     //console.log(JSON.stringify(getEdges(cleanUpMatrix(testMatrix))))
     
+    //console.log(inferHierarchyFromMatrix(testMatrix)[0]);
+    
+    //expect(rateHierarchy(inferHierarchyFromMatrix(threeLongest))).toBe(170);
+    
+    //expect(rateHierarchy(inferHierarchyFromMatrix(testMatrix))).toBe(206);
+    
+  });
+  
+  it("can infer hierarchies from sequences bottom up", () => {
+    const types = _.uniq(testSequence);
+    const typeSequence = testSequence.map(s => types.indexOf(s));
+    //console.log(typeSequence)
+    const hierarchy = inferHierarchyFromTypeSequence(typeSequence, false);
+    //console.log(JSON.stringify(hierarchy));
     
     
-    /*expect(rateHierarchy(inferHierarchyFromMatrix(threeLongest))).toBe(170);
-    
-    expect(rateHierarchy(inferHierarchyFromMatrix(testMatrix))).toBe(206);*/
+    //console.log(JSON.stringify(getSelfSimilarityMatrix(typeSequence.map(t => [t]), true, false)));
     
   });
 

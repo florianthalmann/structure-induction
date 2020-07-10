@@ -1,4 +1,28 @@
-import * as math from 'mathjs'
+import * as math from 'mathjs';
+import * as _ from 'lodash';
+import { getMedian } from './util';
+
+export function getSelfSimilarityMatrix(vectors: number[][], equality?: boolean, smooth?: boolean) {
+	return getSimilarityMatrix(vectors, vectors, equality, smooth);
+}
+
+export function getSimilarityMatrix(v1: number[][], v2: number[][], equality?: boolean, smooth?: boolean) {
+	const matrix = v1.map(v => v2.map(w =>
+		equality ? (_.isEqual(v, w) ? 1 : 0) : getCosineSimilarity(v, w)));
+	return smooth ? smoothDiagonals(matrix) : matrix;
+}
+
+//median filter with median of (level*2)+1
+function smoothDiagonals(matrix: number[][], level = 1) {
+	return matrix.map((x,i) => x.map((_y,j) =>
+		getMedian(getDiagonal(matrix, [i-level, j-level], (level*2)+1))));
+}
+
+function getDiagonal(matrix: number[][], start: [number, number], length: number) {
+	return _.range(0, length).map(k => [start[0]+k, start[1]+k])
+		.filter(([i,j]) => 0 <= i && i < matrix.length && 0 <= j && j < matrix[0].length)
+		.map(([i,j]) => matrix[i][j]);
+}
 
 //adds the given successor to the predecessor of the given uri in the given sequence
 export function addSuccessorToPredecessorOf(uri, successor, sequence, store) {
@@ -45,10 +69,6 @@ export function reduce(vector) {
 	return getCosineSimilarity(vector, unitVector);
 }
 
-export function getSelfSimilarityMatrix(vectors: number[][], threshold?: number) {
-	return vectors.map(v => vectors.map(w => getCosineSimilarity(v, w)));
-}
-
 export function getCosineSimilarities(vectorMap) {
 	var similarities = {};
 	for (var uri1 in vectorMap) {
@@ -64,9 +84,11 @@ export function getCosineSimilarities(vectorMap) {
 	return similarities;
 }
 
-export function getCosineSimilarity(v1, v2) {
+export function getCosineSimilarity(v1: number[], v2: number[]) {
 	if (v1.length == v2.length) {
-		return math.dot(v1, v2)/(math.norm(v1)*math.norm(v2));
+		if (v1.every(x => x == 0) && v2.every(x => x == 0)) return 1;
+		const similarity = math.dot(v1, v2)/(math.norm(v1)*math.norm(v2));
+		if (similarity) return similarity; //0 if one of vectors zero-vector...
 	}
 	return 0;
 }

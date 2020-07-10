@@ -293,6 +293,7 @@ function removeAlignmentCoverage(alignment: [number,number][],
     }
   }
   //remove horizontal and vertical bleeding (any gaps)
+  //TODO (maybe only in diagonal mode??)
   alignment.forEach(([i,j]) => {
     let ii = i+1, jj = j+1;
     let currentValue = matrix[i][j];

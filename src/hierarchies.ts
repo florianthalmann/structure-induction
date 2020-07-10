@@ -1,5 +1,5 @@
 import * as _ from 'lodash';
-import { modForReal, allIndexesOf, cartesianProduct } from './util';
+import { modForReal, allIndexesOf, cartesianProduct, getEntropy } from './util';
 
 interface Pattern {
   p: number, //position
@@ -24,22 +24,77 @@ export function inferHierarchyFromPatternOccurrences(occs: number[][][]) {
   //TODO NOW BUILD HIERARCHY  
 }
 
-export function inferHierarchyFromMatrix(matrix: number[][]) {
-  const possibleSegs = getAllHierarchicalPatterns(matrix);
-  const candidates = possibleSegs.map(s =>
+export function inferHierarchyFromMatrix2(matrix: number[][]) {
+  const allPatterns = matrixToPatterns(matrix);
+  console.log(allPatterns.map(p => p.length));
+  console.log(allPatterns.map(p => p[0][0].l));
+  const candidates = cartesianProduct(allPatterns);
+  console.log(candidates.length)
+  const limits = candidates.map(ps => getDistributionOfLimits(_.flatten(ps).filter(p => p.l > 1)));
+  console.log(limits.length)
+  limits.map(l => console.log(JSON.stringify(l)))
+  const ratings = limits.map(l => getEntropy(l));
+  console.log(ratings)
+  /*const candidates = possibleSegs.map(s =>
     constructHierarchyFromPatterns(s, matrix.length));
   //candidates.map(h => console.log(JSON.stringify(h)));
   const ratings = candidates.map(rateHierarchy);
-  console.log(JSON.stringify(ratings.map(r => _.round(r, 2))));
-  /*console.log(JSON.stringify(patternsToMatrix(
-    possibleSegs[ratings.indexOf(_.max(ratings))], getSize(matrix))));*/
-  return candidates[ratings.indexOf(_.max(ratings))];
+  console.log(JSON.stringify(ratings.map(r => _.round(r, 2))));*/
+  return candidates[ratings.indexOf(_.min(ratings))];
+}
+
+export function inferHierarchyFromMatrix(matrix: number[][]) {
+  const allPatterns = matrixToPatterns(matrix);
+  const limits = getDistributionOfLimits(_.flatten(allPatterns[0]).filter(p => p.l > 1));
+  console.log(limits)
+  const best = searchForBestCombination(allPatterns);
+  console.log(JSON.stringify(best))
+  
+  /*const candidates = possibleSegs.map(s =>
+    constructHierarchyFromPatterns(s, matrix.length));
+  //candidates.map(h => console.log(JSON.stringify(h)));
+  const ratings = candidates.map(rateHierarchy);
+  console.log(JSON.stringify(ratings.map(r => _.round(r, 2))));*/
+  //return candidates[ratings.indexOf(_.min(ratings))];
+  return best;
+}
+
+function searchForBestCombination(patterns: Pattern[][][]) {
+  let currentBest = patterns.map(_p => 0);
+  let currentRating = getRating(patterns, currentBest);
+  //console.log(currentRating)
+  while (true) {
+    let newBest = currentBest;
+    let newRating = currentRating;
+    patterns.forEach((ps,i) => {
+      const options = ps.map((_p,j) => newBest.map((k,l) => l == i ? j : k));
+      const ratings = options.map(o => getRating(patterns, o));
+      const min = _.min(ratings);
+      if (min < newRating) {
+        newBest = options[ratings.indexOf(min)];
+        newRating = min;
+        //console.log(min, JSON.stringify(newBest))
+      }
+    });
+    if (newRating < currentRating) {
+      currentBest = newBest;
+      currentRating = newRating;
+    } else break;
+  }
+  return currentBest.map((b,i) => patterns[i][b]);
+}
+
+function getRating(patterns: Pattern[][][], indexes: number[]) {
+  const selection = _.flatten(patterns.map((p,i) => p[indexes[i]]));
+  return getEntropy(getDistributionOfLimits(selection.filter(p => p.l > 1)));
 }
 
 /** simply takes the first of possible patterns and builds a hierarchy */
-export function quicklyInferHierarchyFromMatrix(matrix: number[][]) {
-  const seg = getHierarchicalPattern(getFirstPatterns(matrix));
-  return constructHierarchyFromPatterns(seg, matrix.length);
+export function quicklyInferHierarchyFromMatrix(matrix: number[][], simplify: boolean) {
+  let patterns = getFirstPatterns(matrix);
+  console.log(JSON.stringify(getDistributionOfLimits(patterns)))
+  if (simplify) patterns = simplifyPatterns(patterns);
+  return constructHierarchyFromPatterns(patterns, matrix.length);
 }
 
 export function keepNBestSegments(matrix: number[][], n: number): number[][] {
@@ -52,55 +107,46 @@ export function keepNBestSegments(matrix: number[][], n: number): number[][] {
 
 export function cleanUpMatrix(matrix: number[][]): number[][] {
   //very reductive: simply takes first of first set of patterns
-  const segs = getHierarchicalPattern(getFirstPatterns(matrix));
+  const segs = makePatternsTransitive(getFirstPatterns(matrix));
   return patternsToMatrix(segs, getSize(matrix));
 }
 
-function getAllHierarchicalPatterns(matrix: number[][]) {
-  const allSegs = matrixToPatterns(matrix);
-  const prod = cartesianProduct(allSegs);
-  return prod.map(segs => getHierarchicalPattern(_.flatten(segs)));
-}
-
 export function getFirstPatterns(matrix: number[][]) {
-  console.log(matrixToPatterns(matrix).map(s => s.length))
-  return simplifyPattern(_.flatten(matrixToPatterns(matrix).map(s => s[0])));
+  //console.log(matrixToPatterns(matrix).map(s => s.length))
+  return _.flatten(matrixToPatterns(matrix).map(s => s[0]));
 }
 
 function matrixToPatterns(matrix: number[][]) {
   return matrixToSegments(matrix).map(s => alignmentToPatterns(s));
 }
 
-export function simplifyPattern(pattern: Pattern[]) {
-  console.log("full", pattern.length)
+export function simplifyPatterns(patterns: Pattern[], minLength = 2) {
+  console.log("full", patterns.length)
   //sort by length, beginning point, and first vector
-  pattern = _.reverse(_.sortBy(_.reverse(_.sortBy(_.sortBy(
-    pattern, s => s.ts[0]), s => s.p)), s => s.l));
-  console.log(JSON.stringify(pattern))
-  /*pattern = mergeAdjacent(pattern);
-  console.log("merged", pattern.length)
-  console.log(JSON.stringify(pattern))
+  patterns = sortPatterns(patterns).filter(p => p.l >= minLength);
+  console.log(JSON.stringify(patterns))
+  patterns = mergeAdjacent(patterns).filter(p => p.l >= minLength);
+  console.log("merged", patterns.length)
+  console.log(JSON.stringify(patterns))
   //pattern = addTransitivity(pattern);
-  pattern = removeSubsegs(pattern);
-  console.log("subsegs", pattern.length);
-  console.log(JSON.stringify(pattern));
+  patterns = removeSubsegs(patterns).filter(p => p.l >= minLength);
+  console.log("subsegs", patterns.length);
+  console.log(JSON.stringify(patterns));
   
-  pattern = syncMultiples(pattern);
-  console.log("sync", pattern.length);
-  console.log(JSON.stringify(pattern));
+  patterns = syncMultiples(patterns).filter(p => p.l >= minLength);
+  console.log("sync", patterns.length);
+  console.log(JSON.stringify(patterns));
   
-  pattern = removeMultiples(pattern);
-  console.log("remove", pattern.length);
-  console.log(JSON.stringify(pattern));*/
+  patterns = removeMultiples(patterns).filter(p => p.l >= minLength);
+  console.log("remove", patterns.length);
+  console.log(JSON.stringify(patterns));
   
-  const limits = pattern.filter(s => s.l > 1).map(s => getLimits(s));
-  const allLimits = _.flatten(limits.slice(1));
-  const timeline = _.range(0, _.max(allLimits)+1).map(_i => 0);
-  allLimits.forEach(l => timeline[l]++);
+  const timeline = getDistributionOfLimits(patterns.filter(s => s.l > 1))
   console.log(JSON.stringify(timeline))
-  console.log(JSON.stringify(indexesOfNMax(timeline, 8)))
-  const comps = limits.map((ls,i) =>
-    allLimits.filter(l => _.includes(ls, l)).length / allLimits.length / pattern[i].ts.length);
+  
+  //agreement of limits of each pattern with other limits...
+  /*const comps = limits.map((ls,i) =>
+    allLimits.filter(l => _.includes(ls, l)).length / allLimits.length / patterns[i].ts.length);
   console.log(JSON.stringify(comps));
   console.log(_.sum(limits[0].map(l => timeline[l])));
   console.log(_.sum(limits[0].map(l => l+1).map(l => timeline[l])));
@@ -111,12 +157,19 @@ export function simplifyPattern(pattern: Pattern[]) {
   console.log(_.sum(limits[0].map(l => l+6).map(l => timeline[l])));
   console.log(_.sum(limits[0].map(l => l+7).map(l => timeline[l])));
   console.log(_.sum(limits[0].map(l => l+8).map(l => timeline[l])));
-  console.log(JSON.stringify(limits.map(ls => _.sum(ls.map(l => timeline[l])))));
+  console.log(JSON.stringify(limits.map(ls => _.sum(ls.map(l => timeline[l])))));*/
   
   //now remove pattern overlaps (ts where segs longer in other pattern...)
   //seggraph difference????
   //pattern = removeIncluded(pattern);
-  return pattern;
+  return patterns;
+}
+
+function getDistributionOfLimits(patterns: Pattern[]) {
+  const limits = _.flatten(patterns.map(s => getLimits(s)));
+  const distribution = _.range(0, _.max(limits)+1).map(_i => 0);
+  limits.forEach(l => distribution[l]++);
+  return distribution;
 }
 
 function indexesOfNMax(array: number[], n: number): number[] {
@@ -267,17 +320,20 @@ export function getEdges(matrix: number[][]) {
   return result;
 }
 
-function getHierarchicalPattern(patterns: Pattern[], minLength = 2) {
-  return addTransitivity(removePatternOverlaps(patterns, minLength, 1));
-}
-
 /** construction of a hierarchy from a given number of patterns */
-function constructHierarchyFromPatterns(patterns: Pattern[], size: number) {
+function constructHierarchyFromPatterns(patterns: Pattern[], size: number): Tree<number> {
+  patterns = makePatternsTransitive(patterns);
   const hierarchy: Tree<number> = _.range(0, size);
   patterns.forEach(s => _.concat([0], s.ts).forEach(t => {
     groupAdjacentLeavesInTree(hierarchy, _.range(s.p+t, s.p+t+s.l));
   }));
   return simplifyHierarchy(hierarchy);
+}
+
+function makePatternsTransitive(patterns: Pattern[], minLength = 2) {
+  const noOverlaps = removePatternOverlaps(patterns, minLength, 1);
+  console.log("noov", JSON.stringify(noOverlaps));
+  return addTransitivity(noOverlaps);
 }
 
 export function rateHierarchy<T>(tree: Tree<T>) {
@@ -299,10 +355,10 @@ function getNodeLengths<T>(tree: Tree<T>): number[] {
       .concat(_.flatten(tree.map(t => getNodeLengths(t)))) : [1];
 }
 
-function simplifyHierarchy<T>(hierarchy: Tree<T>) {
+function simplifyHierarchy<T>(hierarchy: Tree<T>): Tree<T> {
   if (Array.isArray(hierarchy)) {
     return hierarchy.length == 1 ? simplifyHierarchy(hierarchy[0]) :
-      hierarchy.map(h => simplifyHierarchy(h))
+      <Tree<T>><any>hierarchy.map(h => simplifyHierarchy(h));
   } else return hierarchy;
 }
 
@@ -357,28 +413,55 @@ function getOccurrences(s: Pattern) {
 
 /** removes any pattern overlaps, starting with longest pattern,
     adjusting shorter ones to fit within limits */
-function removePatternOverlaps(segments: Pattern[], minSegLength = 2, divFactor = 1) {
-  //sort by length and first translation vector
-  segments = filterAndSortPatterns(segments, minSegLength, divFactor);
+function removePatternOverlaps(patterns: Pattern[], minSegLength = 2, divFactor = 1) {
   const result: Pattern[] = [];
-  while (segments.length > 0) {
-    const next = segments.shift();
+  patterns = filterAndSortPatterns(patterns, minSegLength, divFactor, result);
+  while (patterns.length > 0) {
+    const next = patterns.shift();
     result.push(next);
-    const newBoundaries = _.uniq(_.flatten(
-      _.concat([0], next.ts).map(t => [next.p+t, next.p+t+next.l])));
-    segments = newBoundaries.reduce((segs, b) =>
-      _.flatten(segs.map(s => divideAtPos(s, b))), segments);
-    segments = filterAndSortPatterns(segments, minSegLength, divFactor);
+    const newBoundaries = _.uniq(getLimits(next));
+    patterns = newBoundaries.reduce((segs, b) =>
+      _.flatten(segs.map(s => divideAtPos(s, b))), patterns);
+    patterns = filterAndSortPatterns(patterns, minSegLength, divFactor, result);
   }
   return result;
 }
 
 //sort by length and first translation vector
 function filterAndSortPatterns(patterns: Pattern[],
-    minSegLength: number, divFactor: number) {
+    minSegLength: number, divFactor: number, refPatterns: Pattern[]) {
   patterns = patterns.filter(s =>
     s.l >= minSegLength && s.ts.every(t => modForReal(t, divFactor) == 0));
-  return _.reverse(_.sortBy(patterns, s => s.l));
+  return sortPatterns(patterns, refPatterns);
+}
+
+/** sorts patterns by min(dist from parents, length), position, smallest vector */
+function sortPatterns(patterns: Pattern[], parentCandidates: Pattern[] = []) {
+  return _.reverse(_.sortBy(
+      _.reverse(_.sortBy(
+        _.sortBy(patterns,
+        s => s.ts[0]),
+      s => s.p)),
+    s => Math.min(s.l, minDistFromParents(s, parentCandidates))));
+}
+
+export function minDistFromParents(pattern: Pattern, parentCandidates: Pattern[]) {
+  const parents = parentCandidates.filter(p => containedBy(pattern, p));
+  if (parents.length > 0) {
+    return _.min(parents.map(p => getDistance(pattern, p)));
+  }
+  return Infinity;
+}
+
+/** returns true if p1 is fully contained by p2 */
+export function containedBy(p1: Pattern, p2: Pattern) {
+  const l1 = getLimits(p1);
+  const l2 = getLimits(p2);
+  return l2[0] <= l1[0] && _.last(l1) <= _.last(l2);
+}
+
+export function getDistance(p1: Pattern, p2: Pattern) {
+  return _.min(_.flatten(p1.ts.map(t => p2.ts.map(u => Math.abs(t-u)))));
 }
 
 function patternsToMatrix(patterns: Pattern[],
@@ -466,7 +549,7 @@ function getTiles(point: number, length: number, interval: number, offset = 0) {
   }
   return segs;
 }
-
+  
 function toPattern(occurrences: number[][]): Pattern {
   const length = _.last(occurrences[0])-occurrences[0][0];
   return {
@@ -514,13 +597,13 @@ function merge(s1: Pattern, s2: Pattern): Pattern {
   if (s1.l == s2.l && commonPoint(s1, s2)) {
     const p = _.min([s1.p, s2.p]);
     const ts = _.sortBy(_.uniq(_.flatten([s1, s2].map(s => s.ts.map(t => t+s.p-p)))));
-    if (ts.every((t,i) => i == 0 || t-ts[i-1] >= s1.l)) {
+    //if (ts.every((t,i) => i == 0 || t-ts[i-1] >= s1.l)) {
       return {
         p: p,
         l: s1.l,
         ts: ts
       }
-    }
+    //}
   }
   //maybe also try id lengths are different! (as in old code...)
   /*let minL = Math.min(s1.l, s2.l);
