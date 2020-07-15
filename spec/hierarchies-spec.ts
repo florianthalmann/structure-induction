@@ -89,12 +89,17 @@ describe("hierarchies", () => {
 
     const types = _.uniq(testSequence);
     const typeSequence = testSequence.map(s => types.indexOf(s));
+    console.log("SEQ", JSON.stringify(typeSequence))
     const ssm = getSelfSimilarityMatrix(typeSequence.map(t => [t]), true);
     saveJson('spec/data/ssm-matrix.json', ssm);
     saveJson('spec/data/trans-matrix3.json', getTransitiveMatrix(ssm, false));
+    const ssm2 = getSelfSimilarityMatrix(typeSequence.map(t => [t]), true, 1);
+    saveJson('spec/data/ssm2-matrix.json', ssm2);
+    saveJson('spec/data/trans-matrix4.json', getTransitiveMatrix(ssm2, false));
 
 
-    console.log("ssm", JSON.stringify(quicklyInferHierarchyFromMatrix(ssm, false)))
+    console.log("ssm", JSON.stringify(quicklyInferHierarchyFromMatrix(ssm, false, typeSequence)))
+    console.log("ssm2", JSON.stringify(quicklyInferHierarchyFromMatrix(ssm2, false, typeSequence)))
 
     console.log("bottom up", JSON.stringify(inferHierarchyFromTypeSequence(typeSequence, false)))
 

@@ -2,14 +2,14 @@ import * as math from 'mathjs';
 import * as _ from 'lodash';
 import { getMedian } from './util';
 
-export function getSelfSimilarityMatrix(vectors: number[][], equality?: boolean, smooth?: boolean) {
-	return getSimilarityMatrix(vectors, vectors, equality, smooth);
+export function getSelfSimilarityMatrix(vectors: number[][], equality?: boolean, smoothness = 0) {
+	return getSimilarityMatrix(vectors, vectors, equality, smoothness);
 }
 
-export function getSimilarityMatrix(v1: number[][], v2: number[][], equality?: boolean, smooth?: boolean) {
+export function getSimilarityMatrix(v1: number[][], v2: number[][], equality?: boolean, smoothness = 0) {
 	const matrix = v1.map(v => v2.map(w =>
 		equality ? (_.isEqual(v, w) ? 1 : 0) : getCosineSimilarity(v, w)));
-	return smooth ? smoothDiagonals(matrix) : matrix;
+	return smoothness ? smoothDiagonals(matrix, smoothness) : matrix;
 }
 
 //median filter with median of (level*2)+1

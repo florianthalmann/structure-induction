@@ -90,11 +90,12 @@ function getRating(patterns: Pattern[][][], indexes: number[]) {
 }
 
 /** simply takes the first of possible patterns and builds a hierarchy */
-export function quicklyInferHierarchyFromMatrix(matrix: number[][], simplify: boolean) {
+export function quicklyInferHierarchyFromMatrix(matrix: number[][],
+    simplify: boolean, labels?: number[]) {
   let patterns = getFirstPatterns(matrix);
   console.log(JSON.stringify(getDistributionOfLimits(patterns)))
   if (simplify) patterns = simplifyPatterns(patterns);
-  return constructHierarchyFromPatterns(patterns, matrix.length);
+  return constructHierarchyFromPatterns(patterns, matrix.length, labels);
 }
 
 export function keepNBestSegments(matrix: number[][], n: number): number[][] {
@@ -322,13 +323,14 @@ export function getEdges(matrix: number[][]) {
 }
 
 /** construction of a hierarchy from a given number of patterns */
-function constructHierarchyFromPatterns(patterns: Pattern[], size: number): Tree<number> {
+function constructHierarchyFromPatterns(patterns: Pattern[], size: number,
+    labels?: number[]): Tree<number> {
   patterns = makePatternsTransitive(patterns);
   const hierarchy: Tree<number> = _.range(0, size);
   patterns.forEach(s => _.concat([0], s.ts).forEach(t => {
     groupAdjacentLeavesInTree(hierarchy, _.range(s.p+t, s.p+t+s.l));
   }));
-  return simplifyHierarchy(hierarchy);
+  return labelHierarchy(simplifyHierarchy(hierarchy), labels);
 }
 
 function makePatternsTransitive(patterns: Pattern[]) {
@@ -361,6 +363,13 @@ function simplifyHierarchy<T>(hierarchy: Tree<T>): Tree<T> {
     return hierarchy.length == 1 ? simplifyHierarchy(hierarchy[0]) :
       <Tree<T>><any>hierarchy.map(h => simplifyHierarchy(h));
   } else return hierarchy;
+}
+
+function labelHierarchy(hierarchy: Tree<number>, labels: number[]) {
+  if (!labels) return hierarchy;
+  if (Array.isArray(hierarchy)) {
+    return <Tree<number>><any>hierarchy.map(h => labelHierarchy(h, labels));
+  } else return labels[<number><any>hierarchy];
 }
 
 function groupAdjacentLeavesInTree<T>(tree: Tree<T>, leaves: T[]) {
@@ -417,10 +426,9 @@ function getOccurrences(s: Pattern) {
 function removePatternOverlaps(patterns: Pattern[], minSegLength = 3, minDist = 2, divFactor = 1) {
   let result: Pattern[] = [];
   patterns = filterAndSortPatterns(patterns, minSegLength, minDist, divFactor, result);
+  console.log(JSON.stringify(patterns))
   while (patterns.length > 0) {
     const next = patterns.shift();
-    console.log("results", JSON.stringify(result))
-    console.log("next", next, minDistFromParents(next, result))
     result.push(next);
     result = unpack(addTransitivity(result));
     const newBoundaries = _.uniq(getLimits(next));
