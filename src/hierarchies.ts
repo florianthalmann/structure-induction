@@ -21,7 +21,7 @@ export function inferHierarchyFromPatternOccurrences(occs: number[][][]) {
   let patterns = occs.map(p => toPattern(p));
   //segments.forEach(s => processSegmentPair(s));
   //patterns = _.flatten(patterns.map(s => split(s)));
-  //TODO NOW BUILD HIERARCHY  
+  //TODO NOW BUILD HIERARCHY
 }
 
 export function inferHierarchyFromMatrix2(matrix: number[][]) {
@@ -49,7 +49,7 @@ export function inferHierarchyFromMatrix(matrix: number[][]) {
   console.log(limits)
   const best = searchForBestCombination(allPatterns);
   console.log(JSON.stringify(best))
-  
+
   /*const candidates = possibleSegs.map(s =>
     constructHierarchyFromPatterns(s, matrix.length));
   //candidates.map(h => console.log(JSON.stringify(h)));
@@ -105,10 +105,11 @@ export function keepNBestSegments(matrix: number[][], n: number): number[][] {
   return segmentsToMatrix(best.slice(0, n).map(z => z[0]), getSize(matrix));
 }
 
-export function cleanUpMatrix(matrix: number[][]): number[][] {
+export function getTransitiveMatrix(matrix: number[][], simplify: boolean): number[][] {
   //very reductive: simply takes first of first set of patterns
-  const segs = makePatternsTransitive(getFirstPatterns(matrix));
-  return patternsToMatrix(segs, getSize(matrix));
+  let patterns = getFirstPatterns(matrix);
+  if (simplify) patterns = simplifyPatterns(patterns);
+  return patternsToMatrix(makePatternsTransitive(patterns), getSize(matrix));
 }
 
 export function getFirstPatterns(matrix: number[][]) {
@@ -132,18 +133,18 @@ export function simplifyPatterns(patterns: Pattern[], minLength = 2) {
   patterns = removeSubsegs(patterns).filter(p => p.l >= minLength);
   console.log("subsegs", patterns.length);
   console.log(JSON.stringify(patterns));
-  
+
   patterns = syncMultiples(patterns).filter(p => p.l >= minLength);
   console.log("sync", patterns.length);
   console.log(JSON.stringify(patterns));
-  
+
   patterns = removeMultiples(patterns).filter(p => p.l >= minLength);
   console.log("remove", patterns.length);
   console.log(JSON.stringify(patterns));
-  
+
   const timeline = getDistributionOfLimits(patterns.filter(s => s.l > 1))
   console.log(JSON.stringify(timeline))
-  
+
   //agreement of limits of each pattern with other limits...
   /*const comps = limits.map((ls,i) =>
     allLimits.filter(l => _.includes(ls, l)).length / allLimits.length / patterns[i].ts.length);
@@ -158,7 +159,7 @@ export function simplifyPatterns(patterns: Pattern[], minLength = 2) {
   console.log(_.sum(limits[0].map(l => l+7).map(l => timeline[l])));
   console.log(_.sum(limits[0].map(l => l+8).map(l => timeline[l])));
   console.log(JSON.stringify(limits.map(ls => _.sum(ls.map(l => timeline[l])))));*/
-  
+
   //now remove pattern overlaps (ts where segs longer in other pattern...)
   //seggraph difference????
   //pattern = removeIncluded(pattern);
@@ -330,8 +331,8 @@ function constructHierarchyFromPatterns(patterns: Pattern[], size: number): Tree
   return simplifyHierarchy(hierarchy);
 }
 
-function makePatternsTransitive(patterns: Pattern[], minLength = 2) {
-  const noOverlaps = removePatternOverlaps(patterns, minLength, 1);
+function makePatternsTransitive(patterns: Pattern[]) {
+  const noOverlaps = removePatternOverlaps(patterns);
   console.log("noov", JSON.stringify(noOverlaps));
   return addTransitivity(noOverlaps);
 }
@@ -374,7 +375,7 @@ function groupAdjacentLeavesInTree<T>(tree: Tree<T>, leaves: T[]) {
 }
 
 /** overlaps have to be removed before, and need to be sorted from longest to
-  shortest interval */
+  shortest length */
 export function addTransitivity(patterns: Pattern[]) {
   patterns.forEach((s,i) => {
     _.reverse(patterns.slice(0,i)).forEach(t => {
@@ -413,25 +414,29 @@ function getOccurrences(s: Pattern) {
 
 /** removes any pattern overlaps, starting with longest pattern,
     adjusting shorter ones to fit within limits */
-function removePatternOverlaps(patterns: Pattern[], minSegLength = 2, divFactor = 1) {
-  const result: Pattern[] = [];
-  patterns = filterAndSortPatterns(patterns, minSegLength, divFactor, result);
+function removePatternOverlaps(patterns: Pattern[], minSegLength = 3, minDist = 2, divFactor = 1) {
+  let result: Pattern[] = [];
+  patterns = filterAndSortPatterns(patterns, minSegLength, minDist, divFactor, result);
   while (patterns.length > 0) {
     const next = patterns.shift();
+    console.log("results", JSON.stringify(result))
+    console.log("next", next, minDistFromParents(next, result))
     result.push(next);
+    result = unpack(addTransitivity(result));
     const newBoundaries = _.uniq(getLimits(next));
     patterns = newBoundaries.reduce((segs, b) =>
       _.flatten(segs.map(s => divideAtPos(s, b))), patterns);
-    patterns = filterAndSortPatterns(patterns, minSegLength, divFactor, result);
+    patterns = filterAndSortPatterns(patterns, minSegLength, minDist, divFactor, result);
   }
   return result;
 }
 
 //sort by length and first translation vector
 function filterAndSortPatterns(patterns: Pattern[],
-    minSegLength: number, divFactor: number, refPatterns: Pattern[]) {
+    minSegLength: number, minDist: number, divFactor: number, refPatterns: Pattern[]) {
   patterns = patterns.filter(s =>
-    s.l >= minSegLength && s.ts.every(t => modForReal(t, divFactor) == 0));
+    s.l >= minSegLength && minDistFromParents(s, refPatterns) >= minDist
+      && s.ts.every(t => modForReal(t, divFactor) == 0));
   return sortPatterns(patterns, refPatterns);
 }
 
@@ -448,23 +453,31 @@ function sortPatterns(patterns: Pattern[], parentCandidates: Pattern[] = []) {
 export function minDistFromParents(pattern: Pattern, parentCandidates: Pattern[]) {
   const parents = parentCandidates.filter(p => containedBy(pattern, p));
   if (parents.length > 0) {
-    return _.min(parents.map(p => getDistance(pattern, p)));
+    return _.min(parents.map(p => getDistance(pattern, p))
+      .concat(pattern.ts)); //also consider distance from diagonal
   }
   return Infinity;
 }
 
 /** returns true if p1 is fully contained by p2 */
 export function containedBy(p1: Pattern, p2: Pattern) {
-  const l1 = getLimits(p1);
-  const l2 = getLimits(p2);
-  return l2[0] <= l1[0] && _.last(l1) <= _.last(l2);
+  const o1 = _.flatten(getOccurrences(p1));
+  const o2 = _.flatten(getOccurrences(p2));
+  return _.difference(o1, o2).length == 0;
 }
 
 export function getDistance(p1: Pattern, p2: Pattern) {
   return _.min(_.flatten(p1.ts.map(t => p2.ts.map(u => Math.abs(t-u)))));
 }
 
-function patternsToMatrix(patterns: Pattern[],
+export function unpack(patterns: Pattern[]): Pattern[] {
+  return _.uniqBy(_.flatten(_.flatten(patterns.map(p =>
+    [0].concat(p.ts).map((t,i) => p.ts.slice(i).map(u =>
+      ({p: p.p+t, l: p.l, ts: [u-t]})))
+  ))), p => JSON.stringify(p));
+}
+
+export function patternsToMatrix(patterns: Pattern[],
     size: [number, number]): number[][] {
   const matrix = getZeroMatrix(size);
   patterns.forEach(s => {
@@ -549,7 +562,7 @@ function getTiles(point: number, length: number, interval: number, offset = 0) {
   }
   return segs;
 }
-  
+
 function toPattern(occurrences: number[][]): Pattern {
   const length = _.last(occurrences[0])-occurrences[0][0];
   return {
@@ -632,7 +645,7 @@ export function inferHierarchyFromTypeSequence(typeSequence: number[],
   let currentSequence = _.clone(typeSequence);
   let currentIndex = _.max(typeSequence)+1;
   let currentPair = getMostCommonPair(currentSequence, unequalPairsOnly);
-  
+
   while (currentPair != null) {
     currentSequence = currentSequence.reduce<number[]>((s,t) =>
       s.length > 0 && _.isEqual([_.last(s), t], currentPair) ?
@@ -687,7 +700,7 @@ export function inferHierarchyFromTypeSequence(typeSequence: number[],
     currentPair = getMostCommonPair(currentSequence, unequalPairsOnly);
     currentIndex++;
   }
-  
+
   //combine types that only occur in one context
   _.reverse(_.sortBy([...newTypes.keys()])).forEach(t => {
     const parents = [...newTypes.keys()]
@@ -700,24 +713,24 @@ export function inferHierarchyFromTypeSequence(typeSequence: number[],
       newTypes.delete(t);
     }
   });
-  
+
   //now flatten all types
   [...newTypes.keys()].forEach(t =>
     newTypes.set(t, _.flattenDeep(newTypes.get(t))));
-  
+
   //create hierarchy
   let hierarchy: any[] = _.clone(currentSequence);
   if (log) console.log(_.reverse(_.sortBy([...newTypes.keys()])))
-  
+
   hierarchy = replaceTypesRecursively(hierarchy, newTypes);
-  
+
   //print types and occurrences
   _.reverse(_.sortBy([...newTypes.keys()])).forEach(t => {
     const seq = JSON.stringify(replaceTypesRecursively([t], newTypes)[0]);
     const occs = JSON.stringify(hierarchy).split(seq).length-1;
     if (occs && log) console.log(t, occs, seq);
   });
-  
+
   if (log) console.log(JSON.stringify(hierarchy));
   return hierarchy;
 }

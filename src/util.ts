@@ -78,7 +78,7 @@ export function loadJson<T>(file: string) {
   return <T>JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
-function saveJson<T>(path: string, json: T) {
+export function saveJson<T>(path: string, json: T) {
   try {
     fs.writeFileSync(path, JSON.stringify(json));
   } catch (e) {
