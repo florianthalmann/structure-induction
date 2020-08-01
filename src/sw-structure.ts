@@ -247,7 +247,7 @@ function getBestAlignment(matrices: SmithWatermanResult, options: SmithWatermanO
   const alignment = getAlignment(matrices, i, j, options);
   //keep only matches
   return alignment.filter(([i, j]) => matrices.traceMatrix[i][j] == TRACES.DIAGONAL
-    && matrices.scoreMatrix[i][j] > matrices.scoreMatrix[i-1][j-1]);
+    && (i == 0 || j == 0 || matrices.scoreMatrix[i][j] > matrices.scoreMatrix[i-1][j-1]));
 }
 
 function getAlignments(matrices: SmithWatermanResult, options: SmithWatermanOptions,
