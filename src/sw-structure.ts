@@ -1,6 +1,7 @@
 import * as _ from 'lodash';
 import { StructureResult, MultiStructureResult, CacheableStructureOptions, Pattern } from './structure';
-import { loadOrPerformAndCache, loadCached, modForReal } from './util';
+import { loadOrPerformAndCache, loadCached, modForReal, getEmptyMatrix,
+  toPatterns, createPointMatrix } from './util';
 import { SmithWaterman, SmithWatermanResult, TRACES, GAP_SCORE } from './smith-waterman';
 
 export interface IterativeSmithWatermanResult extends StructureResult {
@@ -174,16 +175,6 @@ function reduceSegments(alignments: [number,number][][],
   return reduced;
 }
 
-function toPatterns(alignments: [number,number][][], points: number[][], points2: number[][]) {
-  return alignments.map(a => {
-    const currentSegments = toSegments(a);
-    const dist = currentSegments[1][0]-currentSegments[0][0];
-    const vector = points[0].map((_,i) => i == 0 ? dist : 0);
-    const segmentPoints = currentSegments.map((s,i) => s.map(j => [points,points2][i][j]));
-    return {points: segmentPoints[0], vectors: [vector], occurrences: segmentPoints};
-  });
-}
-
 function patternToAlignment(pattern: Pattern, points: number[][], points2: number[][]) {
   const stringPoints = points.map(p => JSON.stringify(p));
   const occ1Indexes = pattern.occurrences[0].map(p =>
@@ -194,7 +185,7 @@ function patternToAlignment(pattern: Pattern, points: number[][], points2: numbe
   return _.zip(occ1Indexes, occ2Indexes);
 }
 
-function getPaddedArea(points: number[][], padding: number,
+export function getPaddedArea(points: number[][], padding: number,
     symmetric: boolean, maxX: number, maxY: number) {
   return _.flatten(points.map(p => {
     const ps = [p];
@@ -225,18 +216,6 @@ function getAdjustedSWMatrices(points: number[][], points2: number[][],
     matrices.scoreMatrix = matrices.scoreMatrix.map((r,i) => r.map((c,j) => j > i ? 0 : c));
   }*/
   return matrices;
-}
-
-function createPointMatrix(selectedPoints: number[][], points: number[][],
-    points2: number[][], symmetric: boolean): number[][] {
-  const matrix = getEmptyMatrix(points.length, points2.length);
-  selectedPoints.forEach(p => matrix[p[0]][p[1]] = 1);
-  if (symmetric) selectedPoints.forEach(p => matrix[p[1]][p[0]] = 1);
-  return matrix;
-}
-
-function getEmptyMatrix(numRows: number, numCols: number) {
-  return _.range(0, numRows).map(_r => _.fill(new Array(numCols), 0));
 }
 
 function getBestAlignment(matrices: SmithWatermanResult, options: SmithWatermanOptions) {
@@ -367,14 +346,6 @@ function getAlignment(matrices: SmithWatermanResult, i: number, j: number, optio
     pointsOnAlignment = _.zip(_.range(f[0],l[0]+1), _.range(f[1],l[1]+1));
   }
   return pointsOnAlignment;
-}
-
-function toSegments(alignmentPoints: number[][]) {
-  let currentSegments = _.zip(...alignmentPoints);
-  //sort ascending
-  currentSegments.forEach(o => o.sort((a,b) => a-b));
-  //remove duplicates
-  return currentSegments.map(occ => _.uniq(occ));
 }
 
 /*getSmithWatermanOccurrences(options): number[][][] {

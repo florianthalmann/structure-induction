@@ -3,6 +3,36 @@ import * as _ from 'lodash';
 import { Point, Occurrence, CacheableStructureOptions } from './structure';
 import { compareArrays } from 'arrayutils';
 
+export function createPointMatrix(selectedPoints: number[][], points: number[][],
+    points2: number[][], symmetric: boolean): number[][] {
+  const matrix = getEmptyMatrix(points.length, points2.length);
+  selectedPoints.forEach(p => matrix[p[0]][p[1]] = 1);
+  if (symmetric) selectedPoints.forEach(p => matrix[p[1]][p[0]] = 1);
+  return matrix;
+}
+
+export function toPatterns(alignments: [number,number][][], points: number[][], points2: number[][]) {
+  return alignments.map(a => {
+    const currentSegments = toSegments(a);
+    const dist = currentSegments[1][0]-currentSegments[0][0];
+    const vector = points[0].map((_,i) => i == 0 ? dist : 0);
+    const segmentPoints = currentSegments.map((s,i) => s.map(j => [points,points2][i][j]));
+    return {points: segmentPoints[0], vectors: [vector], occurrences: segmentPoints};
+  });
+}
+
+function toSegments(alignmentPoints: number[][]) {
+  let currentSegments = _.zip(...alignmentPoints);
+  //sort ascending
+  currentSegments.forEach(o => o.sort((a,b) => a-b));
+  //remove duplicates
+  return currentSegments.map(occ => _.uniq(occ));
+}
+
+export function getEmptyMatrix(numRows: number, numCols: number) {
+  return _.range(0, numRows).map(_r => _.fill(new Array(numCols), 0));
+}
+
 export function modForReal(n: number, mod: number) {
   return ((n%mod)+mod)%mod;
 }
