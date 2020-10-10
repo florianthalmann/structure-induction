@@ -2,7 +2,8 @@ import * as _ from 'lodash'
 import * as math from 'mathjs'
 import { Quantizer, ArrayMap } from './quantizer'
 import { opsiatec, getSiatec, OpsiatecOptions, OpsiatecResult } from './opsiatec'
-import { SmithWatermanOptions, getSmithWatermanOccurrences, getMultiSWOccurrences } from './sw-structure';
+import { SmithWatermanOptions, getSmithWatermanOccurrences, getMultiSWOccurrences,
+  MultiSmithWatermanResult, IterativeSmithWatermanResult } from './sw-structure';
 import { getCachedAffinityAlignment } from './similarity';
 import { pointsToIndices } from './util';
 
@@ -99,14 +100,14 @@ export function getSiatecOccurrences(points: number[][], options: OpsiatecOption
     .patterns.map(p => p.occurrences);
 }
 
-export function getSmithWaterman(points: number[][], options: SmithWatermanOptions) {
+export function getSmithWaterman(points: number[][], options: SmithWatermanOptions): IterativeSmithWatermanResult {
   /*let points = quantizedPoints.map(p => p.slice(0,3));
   return new SmithWaterman(null).run(points, points)[0];*/
   return getSmithWatermanOccurrences(getQuantizedPoints(points, options.quantizerFunctions), options);
   //return getCachedAffinityAlignment(getQuantizedPoints(points, options.quantizerFunctions), options);
 }
 
-export function getDualSmithWaterman(points1: number[][], points2: number[][], options: SmithWatermanOptions) {
+export function getDualSmithWaterman(points1: number[][], points2: number[][], options: SmithWatermanOptions): MultiSmithWatermanResult {
   points1 = getQuantizedPoints(points1, options.quantizerFunctions);
   points2 = getQuantizedPoints(points2, options.quantizerFunctions);
   return getMultiSWOccurrences(points1, points2, options);
